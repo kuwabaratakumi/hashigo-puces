@@ -1,0 +1,14 @@
+{
+  "name": "hashigo-puces",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/test.mjs",
+    "import": "node scripts/import-paris.mjs",
+    "serve": "npx --yes http-server public -p 8080 -c-1"
+  },
+  "engines": { "node": ">=20" }
+}
