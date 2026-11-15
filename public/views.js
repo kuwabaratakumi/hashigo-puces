@@ -1,6 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
 import { PERIOD, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js';
 import { MAP_W, MAP_H, ARR } from './paris-map.js';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD } from './france-map.js';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -187,6 +188,28 @@ export function viewMarkets(data, { zone }) {
   const list = data.markets.filter((m) => inZone(zone, m.zone));
   if (!list.length) return '<p class="empty">このエリアの常設の蚤の市は、まだ登録していません</p>';
   return `<p class="lead">毎週決まった曜日に開く蚤の市です（月に1〜2回だけのものは、開催日を書いています）。祝日や夏休みは、時間が変わることがあります。</p>` + grid(list.map((m) => marketCard(m, null)));
+}
+
+/* ---------- フランス全体の地図 ---------- */
+export function franceMap(data, region, open) {
+  const count = (r) => data.markets.filter((m) => m.region === r).length;
+  const pin = (r, c) => `<g class="fr__pin" data-region="${esc(r)}" role="button" tabindex="0" aria-pressed="${r === region}" aria-label="${esc(r)}（${count(r)}件）">
+      <title>${esc(r)}（${count(r)}件）</title><circle class="fr__dot" cx="${c.x}" cy="${c.y}" r="11"/><text class="fr__label" x="${c.x}" y="${c.y - 17}">${esc(r)}</text></g>`;
+  const sud = `<g class="fr__pin" data-region="南仏" role="button" tabindex="0" aria-pressed="${region === '南仏'}" aria-label="南仏（${count('南仏')}件）">
+      <title>南仏（${count('南仏')}件）</title><ellipse class="fr__zone" cx="515" cy="522" rx="98" ry="30"/>
+      ${FR_SUD.map((c) => `<circle class="fr__town" cx="${c.x}" cy="${c.y}" r="4"/>`).join('')}
+      <text class="fr__label" x="515" y="${490}">南仏</text>
+      <text class="fr__town-name" x="505" y="563">マルセイユ</text><text class="fr__town-name" x="596" y="505">ニース</text><text class="fr__town-name" x="433" y="545">モンペリエ</text></g>`;
+  return `<details class="mapbox" id="francebox" ${open ? 'open' : ''}>
+    <summary>フランスのどのあたり？<span class="mapbox__now">${esc(region)}を表示中</span></summary>
+    <div class="mapbox__body">
+      <svg class="map map--fr" viewBox="-10 -30 ${FR_W + 20} ${FR_H + 40}" role="group" aria-label="フランス本土の地図。パリ、リヨン、南仏、ボルドー、トゥールーズの位置。押すと地方をえらべます">
+        <path class="fr__land" d="${FR_OUTLINE}"/>
+        ${pin('パリ', FR_CITIES['パリ'])}${pin('リヨン', FR_CITIES['リヨン'])}${pin('ボルドー', FR_CITIES['ボルドー'])}${pin('トゥールーズ', FR_CITIES['トゥールーズ'])}${sud}
+      </svg>
+      <p class="map__note">丸や楕円を押すと、その地方の市に切りかわります。南仏には、マルセイユ・ニース・モンペリエ・アルル・リル＝シュル＝ラ＝ソルグ・エクスを入れています。コルシカ島は載せていません。</p>
+    </div>
+  </details>`;
 }
 
 /* ---------- 地図でエリアをえらぶ ---------- */

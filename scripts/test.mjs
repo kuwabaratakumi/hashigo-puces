@@ -105,3 +105,17 @@ console.log('テストOK');
   assert.ok(ids('南仏', '2027-02-17').includes('s008'));                  // 第3水曜
   console.log('地方テストOK');
 }
+
+{
+  const { franceMap } = await import('../public/views.js');
+  const { FR_CITIES, FR_SUD, FR_OUTLINE } = await import('../public/france-map.js');
+  const regions = ['パリ', 'リヨン', '南仏', 'ボルドー', 'トゥールーズ'];
+  const html = franceMap({ markets: [{ region: 'リヨン' }] }, 'リヨン', true);
+  for (const r of regions) assert.ok(html.includes(`data-region="${r}"`), `${r} のマーカー`);
+  assert.ok(html.includes('aria-pressed="true"') && html.startsWith('<details'));
+  assert.deepEqual(Object.keys(FR_CITIES).sort(), ['パリ', 'リヨン', 'ボルドー', 'トゥールーズ'].sort());
+  assert.ok(FR_SUD.length >= 3 && FR_OUTLINE.startsWith('M'));
+  assert.ok(FR_CITIES['パリ'].y < FR_CITIES['リヨン'].y && FR_CITIES['リヨン'].y < FR_CITIES['トゥールーズ'].y); // 北から南
+  assert.ok(FR_CITIES['ボルドー'].x < FR_CITIES['パリ'].x && FR_CITIES['パリ'].x < FR_CITIES['リヨン'].x);       // 西から東
+  console.log('フランス地図テストOK');
+}

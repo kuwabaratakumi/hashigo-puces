@@ -1,5 +1,5 @@
 import { parisToday, clampToPeriod, PERIOD } from './schedule.js';
-import { dayStrip, regionChips, regionNote, zoneChips, zoneMap, viewDay, viewHashigo, viewEvents, viewMarkets, viewSaved, setSaved, starLabel, esc } from './views.js';
+import { dayStrip, regionChips, regionNote, zoneChips, zoneMap, franceMap, viewDay, viewHashigo, viewEvents, viewMarkets, viewSaved, setSaved, starLabel, esc } from './views.js';
 // パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
@@ -13,6 +13,7 @@ const state = {
   region: store.get('hashigo-puces:region', 'パリ'),
   zone: store.get('hashigo-puces:zone', 'すべて'),
   mapOpen: store.get('hashigo-puces:map', true),
+  frOpen: store.get('hashigo-puces:fr', true),
   date: '',
 };
 // お気に入りとメモ（このブラウザの中だけに保存）
@@ -45,7 +46,7 @@ function render() {
     : state.view === 'saved' ? viewSaved(all, today)
     : viewDay(data, state);
   // ★ メモの画面はエリアでしぼらないので、地図は出さない。地図はパリだけ
-  $('#main').innerHTML = (state.view === 'saved' ? '' : paris ? zoneMap(data, state.zone, state.mapOpen) : regionNote(state.region, state.view)) + body;
+  $('#main').innerHTML = (state.view === 'saved' ? '' : franceMap(all, state.region, state.frOpen) + (paris ? zoneMap(data, state.zone, state.mapOpen) : regionNote(state.region, state.view))) + body;
 }
 
 function toggleFav(btn) {
@@ -79,7 +80,7 @@ function bind() {
   document.addEventListener('click', (e) => { const t = e.target.closest(SEL); if (t) act(t); });
   // 地図の区はボタンではないので、キーボードでも押せるようにする
   document.addEventListener('keydown', (e) => {
-    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('path[data-zone]')) { e.preventDefault(); act(e.target); }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('path[data-zone],[data-region][role="button"]')) { e.preventDefault(); act(e.target); }
   });
   document.addEventListener('input', (e) => {
     const t = e.target;
@@ -91,6 +92,7 @@ function bind() {
   });
   // 地図を開いているかどうかを覚える（toggle は親に伝わらないので capture で受ける）
   document.addEventListener('toggle', (e) => {
+    if (e.target.id === 'francebox') { state.frOpen = e.target.open; store.set('hashigo-puces:fr', state.frOpen); }
     if (e.target.id === 'mapbox') { state.mapOpen = e.target.open; store.set('hashigo-puces:map', state.mapOpen); }
   }, true);
 }
