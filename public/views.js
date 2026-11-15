@@ -1,5 +1,6 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
 import { addDays, weekday, marketsOn, eventsOn, upcoming, hashigoOn } from './schedule.js';
+import { MAP_W, MAP_H, ARR } from './paris-map.js';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -16,6 +17,23 @@ const KIND_FR = { brocante: 'brocante', 'vide-greniers': 'vide-greniers', trocan
 const arrText = (arr) => arr.map((n) => `${n}区`).join('・');
 const inZone = (zone, z) => zone === 'すべて' || z === zone;
 
+/* ---------- お気に入りとメモ ---------- */
+// 保存の中身（app.js が持つ）。{ fav: {key: {label}}, memo: {key: {text, label}}, note: '' }
+let SAVED = { fav: {}, memo: {}, note: '' };
+export const setSaved = (s) => { SAVED = s; };
+export const eventKey = (e) => `e:${e.start}:${e.place}`;
+export const starLabel = (on) => (on ? 'お気に入りから外す' : 'お気に入りに入れる');
+
+function star(key, label) {
+  const on = Boolean(SAVED.fav[key]);
+  return `<button type="button" class="star" data-fav="${esc(key)}" data-label="${esc(label)}" aria-pressed="${on}" aria-label="${starLabel(on)}">${on ? '★' : '☆'}</button>`;
+}
+function memoBox(key, label) {
+  const text = SAVED.memo[key]?.text || '';
+  return `<details class="memo" ${text ? 'open' : ''}><summary>${text ? 'メモ' : 'メモを書く'}</summary>
+    <textarea data-memo="${esc(key)}" data-label="${esc(label)}" rows="3" aria-label="${esc(label)} のメモ" placeholder="さがしたい物、行く時間など">${esc(text)}</textarea></details>`;
+}
+
 /* ---------- カード ---------- */
 function weekRow(m) {
   return `<div class="week" aria-label="開く曜日">${WEEK_ORDER.map((d) => `<span ${m.hours[d] ? 'data-open' : ''}>${DOW[d]}</span>`).join('')}</div>`;
@@ -31,6 +49,7 @@ export function marketCard(m, hours) {
     : `<a class="btn btn--ghost" href="${esc(gsearch(m.nameFr))}" target="_blank" rel="noopener">公式をさがす</a>`;
   const guess = m.status !== '確認済' ? `<span class="unverified">${esc(m.status)}</span>` : '';
   return `<article class="card" data-type="market">
+    ${star(m.id, m.name)}
     <div class="card__head">
       <p class="card__when">${hours ? `${hm(hours.open)}〜${hm(hours.close)}` : '毎週'}${guess}</p>
       <h3 class="card__name">${esc(m.name)}</h3>
@@ -43,8 +62,9 @@ export function marketCard(m, hours) {
       <div><dt>場所</dt><dd>${esc(m.area)} ・ <span lang="fr">${esc(m.address)}</span></dd></div>
       <div><dt>駅</dt><dd>${esc(m.metro)}</dd></div>
       ${hours ? '' : `<div><dt>時間</dt><dd>${weekText(m)}</dd></div>`}
-      ${m.note ? `<div><dt>メモ</dt><dd>${esc(m.note)}</dd></div>` : ''}
+      ${m.note ? `<div><dt>補足</dt><dd>${esc(m.note)}</dd></div>` : ''}
     </dl>
+    ${memoBox(m.id, m.name)}
     <div class="card__links">
       ${official}
       <a class="btn btn--ghost" href="${esc(gmaps(m.nameFr + ' ' + m.address))}" target="_blank" rel="noopener">地図</a>
@@ -57,7 +77,10 @@ export function marketCard(m, hours) {
 export function eventCard(e, sourceUrl) {
   const kinds = e.kinds.map((k) => KIND[k] || k).join('・');
   const q = `${e.kinds.map((k) => KIND_FR[k]).join(' ')} ${e.place} Paris ${Number(e.start.slice(8))}/${e.start.slice(5, 7)}/${e.start.slice(0, 4)}`;
+  const key = eventKey(e);
+  const label = `${range(e.start, e.end)} ${e.place}`;
   return `<article class="card" data-type="event">
+    ${star(key, label)}
     <div class="card__head">
       <p class="card__when">${range(e.start, e.end)}</p>
       <h3 class="card__name" lang="fr">${esc(e.place)}</h3>
@@ -68,6 +91,7 @@ export function eventCard(e, sourceUrl) {
       <div><dt>時間</dt><dd>一覧に記載なし（下の「時間をさがす」で確認）</dd></div>
       ${e.organizer ? `<div><dt>主催</dt><dd lang="fr">${esc(e.organizer)}</dd></div>` : ''}
     </dl>
+    ${memoBox(key, label)}
     <div class="card__links">
       <a class="btn" href="${esc(gmaps(`${e.place}, Paris ${e.arr[0]}e`))}" target="_blank" rel="noopener">地図</a>
       <a class="btn btn--ghost" href="${esc(gsearch(q))}" target="_blank" rel="noopener">時間をさがす</a>
@@ -153,4 +177,50 @@ export function viewMarkets(data, { zone }) {
   const list = data.markets.filter((m) => inZone(zone, m.zone));
   if (!list.length) return '<p class="empty">このエリアの常設の蚤の市は、まだ登録していません</p>';
   return `<p class="lead">毎週決まった曜日に開く蚤の市です。祝日や夏休みは、時間が変わることがあります。</p>` + grid(list.map((m) => marketCard(m, null)));
+}
+
+/* ---------- 地図でエリアをえらぶ ---------- */
+export function zoneMap(data, zone, open) {
+  const idx = (z) => data.zones.indexOf(z);
+  const paths = Object.entries(ARR).map(([n, a]) => {
+    const z = data.zoneOf[n];
+    const on = zone === 'すべて' || z === zone;
+    return `<path class="map__arr" d="${a.d}" data-zone="${esc(z)}" data-z="${idx(z)}" ${on ? 'data-on' : ''} role="button" tabindex="0" aria-pressed="${z === zone}" aria-label="${n}区（${esc(z)}）"><title>${n}区（${esc(z)}）</title></path>`;
+  }).join('');
+  const nums = Object.entries(ARR).map(([n, a]) => `<text class="map__num" x="${a.c[0]}" y="${a.c[1] + 4}">${n}</text>`).join('');
+  const legend = ['すべて', ...data.zones].map((z) => `<button type="button" class="map__key" data-zone="${esc(z)}" data-z="${idx(z)}" aria-pressed="${z === zone}">${z === 'すべて' ? '' : '<i></i>'}${esc(z)}</button>`).join('');
+  return `<details class="mapbox" id="mapbox" ${open ? 'open' : ''}>
+    <summary>地図でエリアをえらぶ<span class="mapbox__now">${zone === 'すべて' ? 'すべて表示中' : `${esc(zone)}を表示中`}</span></summary>
+    <div class="mapbox__body">
+      <svg class="map" viewBox="-4 -4 ${MAP_W + 8} ${MAP_H + 8}" role="group" aria-label="パリ20区の地図。区を押すとエリアをえらべます">${paths}${nums}</svg>
+      <div class="map__legend">${legend}<p class="map__note">数字は区。サン＝トゥアンは「右岸・北」に入れています。</p></div>
+    </div>
+  </details>`;
+}
+
+/* ---------- ★ メモ（お気に入りとメモのまとめ） ---------- */
+export function viewSaved(data, today) {
+  const byKey = new Map([...data.markets.map((m) => [m.id, { market: m }]), ...data.events.map((e) => [eventKey(e), { event: e }])]);
+  const keys = [...new Set([...Object.keys(SAVED.fav), ...Object.keys(SAVED.memo)])];
+  const render = (k) => { const x = byKey.get(k); return x.market ? marketCard(x.market, null) : eventCard(x.event, data.eventsMeta.source); };
+  const order = (a, b) => {
+    const A = byKey.get(a), B = byKey.get(b);
+    return (A.event ? 1 : 0) - (B.event ? 1 : 0) || (A.event && B.event ? A.event.start.localeCompare(B.event.start) : 0);
+  };
+  const known = keys.filter((k) => byKey.has(k)).sort(order);
+  const favs = known.filter((k) => SAVED.fav[k]);
+  const memos = known.filter((k) => !SAVED.fav[k]);
+  const gone = keys.filter((k) => !byKey.has(k));
+  const note = `<section class="note"><h2 class="section__title">旅のメモ<span class="month__n">どのカードにも付かない、自由なメモ</span></h2>
+    <textarea id="tripNote" rows="5" aria-label="旅のメモ" placeholder="持っていく物、予算、行きたい順番など">${esc(SAVED.note || '')}</textarea></section>`;
+  const goneHtml = gone.length ? `<h2 class="section__title">一覧から消えた市<span class="month__n">終わった市など</span></h2><ul class="gone">${gone.map((k) => {
+    const label = SAVED.fav[k]?.label || SAVED.memo[k]?.label || k;
+    const text = SAVED.memo[k]?.text;
+    return `<li><b>${esc(label)}</b>${text ? `<p>${esc(text)}</p>` : ''}<button type="button" class="btn btn--ghost" data-forget="${esc(k)}">消す</button></li>`;
+  }).join('')}</ul>` : '';
+  const empty = !keys.length ? '<p class="empty">まだ何も入っていません。カードの ☆ でお気に入りに、「メモを書く」でメモを付けられます</p>' : '';
+  return `<p class="lead">お気に入りとメモは、このブラウザの中だけに保存されます。</p>` + note
+    + (favs.length ? `<h2 class="section__title">お気に入り<span class="month__n">${favs.length}件</span></h2>${grid(favs.map(render))}` : '')
+    + (memos.length ? `<h2 class="section__title">メモを付けた市<span class="month__n">${memos.length}件</span></h2>${grid(memos.map(render))}` : '')
+    + goneHtml + empty;
 }

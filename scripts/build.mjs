@@ -76,7 +76,7 @@ async function main() {
 
   const dir = path.join(root, 'public', 'data');
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(path.join(dir, 'puces.json'), JSON.stringify({ builtAt: new Date().toISOString(), zones: ZONES, markets: outMarkets, events: outEvents, groups: outGroups, eventsMeta: meta }));
+  await fs.writeFile(path.join(dir, 'puces.json'), JSON.stringify({ builtAt: new Date().toISOString(), zones: ZONES, zoneOf: ZONE_OF, markets: outMarkets, events: outEvents, groups: outGroups, eventsMeta: meta }));
   console.log(`常設 ${outMarkets.length}件・単発 ${outEvents.length}件（${outEvents[0]?.start ?? '-'} 〜 ${outEvents.at(-1)?.end ?? '-'}）・はしごエリア ${outGroups.length}件`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
