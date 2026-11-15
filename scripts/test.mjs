@@ -62,3 +62,46 @@ const hs = hashigoOn([{ key: '南', arrs: [14, 15] }, { key: '北', arrs: [18] }
 assert.deepEqual(hs.map((x) => [x.markets.length, x.events.length]), [[2, 1], [1, 0]]);
 
 console.log('テストOK');
+
+// 期間(2027-01-01〜02-28)
+{
+  const { PERIOD, clampToPeriod, periodDays, inPeriod } = await import('../public/schedule.js');
+  assert.equal(PERIOD.start, '2027-01-01'); assert.equal(PERIOD.end, '2027-02-28');
+  assert.equal(clampToPeriod('2026-11-15'), '2027-01-01');
+  assert.equal(clampToPeriod('2027-02-10'), '2027-02-10');
+  assert.equal(clampToPeriod('2027-04-01'), '2027-02-28');
+  assert.equal(periodDays().length, 59);
+  const ev = [{ start: '2026-12-20', end: '2026-12-21' }, { start: '2027-01-27', end: '2027-01-30' }, { start: '2027-03-29', end: '2027-03-29' }];
+  assert.deepEqual(inPeriod(ev, '2026-11-15'), [ev[1]]);
+  console.log('期間テストOK');
+}
+
+// 地方（リヨン・南仏・ボルドー）
+{
+  const fs = await import('node:fs');
+  const j = JSON.parse(fs.readFileSync(new URL('../public/data/puces.json', import.meta.url), 'utf8'));
+  assert.deepEqual(j.regions, ['パリ', 'リヨン', '南仏', 'ボルドー', 'トゥールーズ']);
+  for (const m of j.markets) {
+    assert.ok(j.regions.includes(m.region), `${m.id} の region`);
+    if (m.region !== 'パリ') assert.equal(m.zone, '', `${m.id} は地方なので zone は空`);
+    assert.ok(m.hours.some(Boolean), `${m.id} に開く曜日がある`);
+  }
+  const by = (r) => j.markets.filter((m) => m.region === r).length;
+  assert.ok(by('パリ') === 7 && by('リヨン') >= 1 && by('南仏') >= 1 && by('ボルドー') >= 1);
+  // 2027-01-03（日）はボルドーとリヨンの日曜の市が開く
+  const { marketsOn } = await import('../public/schedule.js');
+  const open = (r) => marketsOn(j.markets.filter((m) => m.region === r), '2027-01-03').map((x) => x.market.id);
+  assert.deepEqual(open('ボルドー'), ['b001']);
+  assert.deepEqual(open('リヨン').sort(), ['r001', 'r002']);
+  // 2027-01-04（月）はニースのブロカントとイル・オ・ブロカント、マルセイユは休み
+  assert.deepEqual(marketsOn(j.markets.filter((m) => m.region === '南仏'), '2027-01-04').map((x) => x.market.id).sort(), ['s003', 's004']);
+  // 決まった日だけ開く市（dates）：トゥールーズのブロカント・デ・アレとアルル
+  const ids = (r, d) => marketsOn(j.markets.filter((m) => m.region === r), d).map((x) => x.market.id).sort();
+  assert.deepEqual(ids('トゥールーズ', '2027-01-02'), ['t001', 't002']); // 土：第1週の3日間 + サン＝トーバン
+  assert.deepEqual(ids('トゥールーズ', '2027-01-09'), ['t002']);         // 土：第2週は t001 は休み
+  assert.deepEqual(ids('トゥールーズ', '2027-02-07'), ['t001']);         // 日：第1週
+  assert.ok(ids('南仏', '2027-01-06').includes('s008'));                  // アルル 第1水曜
+  assert.ok(!ids('南仏', '2027-01-13').includes('s008'));                 // 第2水曜は休み
+  assert.ok(ids('南仏', '2027-02-17').includes('s008'));                  // 第3水曜
+  console.log('地方テストOK');
+}

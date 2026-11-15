@@ -1,10 +1,9 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { addDays, weekday, marketsOn, eventsOn, upcoming, hashigoOn } from './schedule.js';
+import { PERIOD, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js';
 import { MAP_W, MAP_H, ARR } from './paris-map.js';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
-export const STRIP_DAYS = 14;
 export const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const md = (iso) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
 export const mdw = (iso) => `${md(iso)}（${DOW[weekday(iso)]}）`;
@@ -38,6 +37,8 @@ function memoBox(key, label) {
 function weekRow(m) {
   return `<div class="week" aria-label="開く曜日">${WEEK_ORDER.map((d) => `<span ${m.hours[d] ? 'data-open' : ''}>${DOW[d]}</span>`).join('')}</div>`;
 }
+/** 決まった日だけ開く市の、開催日（例：1/1（金）・1/2（土））*/
+const datesText = (m) => m.dates.map(mdw).join('・');
 function weekText(m) {
   return WEEK_ORDER.filter((d) => m.hours[d]).map((d) => `${DOW[d]} ${hm(m.hours[d].open)}〜${hm(m.hours[d].close)}${m.hours[d].note ? `（${esc(m.hours[d].note)}）` : ''}`).join('<br>');
 }
@@ -51,16 +52,17 @@ export function marketCard(m, hours) {
   return `<article class="card" data-type="market">
     ${star(m.id, m.name)}
     <div class="card__head">
-      <p class="card__when">${hours ? `${hm(hours.open)}〜${hm(hours.close)}` : '毎週'}${guess}</p>
+      <p class="card__when">${hours ? `${hm(hours.open)}〜${hm(hours.close)}` : m.dates ? '決まった日だけ' : '毎週'}${guess}</p>
       <h3 class="card__name">${esc(m.name)}</h3>
       <p class="card__fr" lang="fr">${esc(m.nameFr)}</p>
       <div class="card__badges"><span class="pill pill--market">常設</span><span class="pill pill--kind">${esc(m.kind)}</span></div>
     </div>
-    ${weekRow(m)}
+    ${m.dates ? '' : weekRow(m)}
     <dl class="card__meta">
       ${hours && hours.note ? `<div><dt>注意</dt><dd>${esc(hours.note)}</dd></div>` : ''}
       <div><dt>場所</dt><dd>${esc(m.area)} ・ <span lang="fr">${esc(m.address)}</span></dd></div>
-      <div><dt>駅</dt><dd>${esc(m.metro)}</dd></div>
+      ${m.metro ? `<div><dt>${m.region === 'パリ' ? '駅' : '最寄り'}</dt><dd>${esc(m.metro)}</dd></div>` : ''}
+      ${m.dates ? `<div><dt>開催日</dt><dd>${datesText(m)}</dd></div>` : ''}
       ${hours ? '' : `<div><dt>時間</dt><dd>${weekText(m)}</dd></div>`}
       ${m.note ? `<div><dt>補足</dt><dd>${esc(m.note)}</dd></div>` : ''}
     </dl>
@@ -103,17 +105,25 @@ export function eventCard(e, sourceUrl) {
 const grid = (html) => `<div class="grid">${html.join('')}</div>`;
 
 /* ---------- 上の帯 ---------- */
-/** 今日から14日ぶんの日付ボタン */
+/** 見られる期間（1〜2月）の日付ボタン */
 export function dayStrip(data, today, selected, zone) {
-  const out = [];
-  for (let i = 0; i < STRIP_DAYS; i++) {
-    const iso = addDays(today, i);
+  return periodDays().map((iso, i) => {
     const w = weekday(iso);
     const n = marketsOn(data.markets, iso).filter((x) => inZone(zone, x.market.zone)).length + eventsOn(data.events, iso).filter((e) => inZone(zone, e.zone)).length;
-    out.push(`<button class="day" type="button" data-date="${iso}" ${iso === selected ? 'aria-current="date"' : ''} ${n ? '' : 'data-empty'} ${i === 0 ? 'data-today' : ''} ${w === 0 || w === 6 ? 'data-weekend' : ''} aria-label="${mdw(iso)} ${n}件">
-      <span class="day__m">${i === 0 || iso.endsWith('-01') ? `${Number(iso.slice(5, 7))}月` : ''}</span><span class="day__d">${Number(iso.slice(8))}</span><span class="day__w">${DOW[w]}</span></button>`);
-  }
-  return out.join('');
+    return `<button class="day" type="button" data-date="${iso}" ${iso === selected ? 'aria-current="date"' : ''} ${n ? '' : 'data-empty'} ${iso === today ? 'data-today' : ''} ${w === 0 || w === 6 ? 'data-weekend' : ''} aria-label="${mdw(iso)} ${n}件">
+      <span class="day__m">${i === 0 || iso.endsWith('-01') ? `${Number(iso.slice(5, 7))}月` : ''}</span><span class="day__d">${Number(iso.slice(8))}</span><span class="day__w">${DOW[w]}</span></button>`;
+  }).join('');
+}
+
+export function regionChips(data, region) {
+  const count = (r) => data.markets.filter((m) => m.region === r).length;
+  return data.regions.map((r) => `<button type="button" class="chip chip--region" data-region="${esc(r)}" aria-pressed="${r === region}">${esc(r)}<span class="chip__n">${count(r)}</span></button>`).join('');
+}
+
+/** 地方では、載せているものの範囲を最初に知らせる */
+export function regionNote(region, view) {
+  if (view === 'saved') return '';
+  return `<p class="notice">${esc(region)}は、毎週や毎月、決まった日に開く市だけを載せています。単発の市（サロンなど）と、はしごの組み合わせは、パリだけです。曜日と時間は観光局や市の案内によるもので、行く前に公式の案内も見てください。</p>`;
 }
 
 export function zoneChips(data, zone) {
@@ -163,12 +173,12 @@ export function viewHashigo(data, { date, zone }) {
 
 /* ---------- 単発の予定 ---------- */
 export function viewEvents(data, today, { zone }) {
-  const list = upcoming(data.events, today).filter((e) => inZone(zone, e.zone));
+  const list = inPeriod(data.events, today).filter((e) => inZone(zone, e.zone));
   const meta = data.eventsMeta;
-  const lead = `<p class="lead">パリ市の一覧に載っている、これからの単発の市です${meta.pageUpdated ? `（一覧の更新日 ${esc(meta.pageUpdated)}）` : ''}。1〜2月はほとんど開かれません。</p>`;
+  const lead = `<p class="lead">パリ市の一覧に載っている、2027年1月1日〜2月末の単発の市です${meta.pageUpdated ? `（一覧の更新日 ${esc(meta.pageUpdated)}）` : ''}。1〜2月は、もともと少ない時期です。</p>`;
   if (!list.length) return lead + '<p class="empty">これからの予定は、まだ一覧に出ていません</p>';
   const months = new Map();
-  for (const e of list) { const ym = (e.start < today ? today : e.start).slice(0, 7); if (!months.has(ym)) months.set(ym, []); months.get(ym).push(e); }
+  for (const e of list) { const ym = (e.start < PERIOD.start ? PERIOD.start : e.start).slice(0, 7); if (!months.has(ym)) months.set(ym, []); months.get(ym).push(e); }
   return lead + [...months].map(([ym, es]) => `<section class="month"><h2 class="month__title"><span class="month__y">${ym.slice(0, 4)}年</span>${Number(ym.slice(5))}月<span class="month__n">${es.length}件</span></h2>${grid(es.map((e) => eventCard(e, meta.source)))}</section>`).join('');
 }
 
@@ -176,7 +186,7 @@ export function viewEvents(data, today, { zone }) {
 export function viewMarkets(data, { zone }) {
   const list = data.markets.filter((m) => inZone(zone, m.zone));
   if (!list.length) return '<p class="empty">このエリアの常設の蚤の市は、まだ登録していません</p>';
-  return `<p class="lead">毎週決まった曜日に開く蚤の市です。祝日や夏休みは、時間が変わることがあります。</p>` + grid(list.map((m) => marketCard(m, null)));
+  return `<p class="lead">毎週決まった曜日に開く蚤の市です（月に1〜2回だけのものは、開催日を書いています）。祝日や夏休みは、時間が変わることがあります。</p>` + grid(list.map((m) => marketCard(m, null)));
 }
 
 /* ---------- 地図でエリアをえらぶ ---------- */

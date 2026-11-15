@@ -1,5 +1,5 @@
-import { parisToday, addDays } from './schedule.js';
-import { STRIP_DAYS, dayStrip, zoneChips, zoneMap, viewDay, viewHashigo, viewEvents, viewMarkets, viewSaved, setSaved, starLabel, esc } from './views.js';
+import { parisToday, clampToPeriod, PERIOD } from './schedule.js';
+import { dayStrip, regionChips, regionNote, zoneChips, zoneMap, viewDay, viewHashigo, viewEvents, viewMarkets, viewSaved, setSaved, starLabel, esc } from './views.js';
 // パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
@@ -10,6 +10,7 @@ const VIEWS = ['day', 'hashigo', 'events', 'markets', 'saved'];
 const state = {
   data: null,
   view: store.get('hashigo-puces:view', 'day'),
+  region: store.get('hashigo-puces:region', 'パリ'),
   zone: store.get('hashigo-puces:zone', 'すべて'),
   mapOpen: store.get('hashigo-puces:map', true),
   date: '',
@@ -25,20 +26,26 @@ const $ = (s, el = document) => el.querySelector(s);
 
 function render() {
   const today = parisToday();
-  const { data } = state;
-  if (!VIEWS.includes(state.view)) state.view = 'day';
-  if (state.zone !== 'すべて' && !data.zones.includes(state.zone)) state.zone = 'すべて';
-  if (!state.date || state.date < today || state.date > addDays(today, STRIP_DAYS - 1)) state.date = today;
-  document.querySelectorAll('.view button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === state.view)));
+  const all = state.data;
+  if (!all.regions.includes(state.region)) state.region = 'パリ';
+  const paris = state.region === 'パリ';
+  // 地方は、その地方の常設だけを見せる（単発・はしご・エリアはパリだけ）
+  const data = { ...all, markets: all.markets.filter((m) => m.region === state.region), events: paris ? all.events : [], groups: paris ? all.groups : [] };
+  if (!VIEWS.includes(state.view) || (!paris && state.view === 'hashigo')) state.view = 'day';
+  if (!paris || (state.zone !== 'すべて' && !all.zones.includes(state.zone))) state.zone = 'すべて';
+  if (!state.date || state.date < PERIOD.start || state.date > PERIOD.end) state.date = clampToPeriod(today);
+  document.querySelectorAll('.view button').forEach((b) => { b.setAttribute('aria-pressed', String(b.dataset.view === state.view)); if (b.dataset.view === 'hashigo') b.hidden = !paris; });
+  $('#regions').innerHTML = regionChips(all, state.region);
   $('#days').innerHTML = dayStrip(data, today, state.date, state.zone);
-  $('#zones').innerHTML = zoneChips(data, state.zone);
+  $('#zones').innerHTML = paris ? zoneChips(data, state.zone) : '';
+  $('#zones').hidden = !paris;
   const body = state.view === 'hashigo' ? viewHashigo(data, state)
     : state.view === 'events' ? viewEvents(data, today, state)
     : state.view === 'markets' ? viewMarkets(data, state)
-    : state.view === 'saved' ? viewSaved(data, today)
+    : state.view === 'saved' ? viewSaved(all, today)
     : viewDay(data, state);
-  // ★ メモの画面はエリアでしぼらないので、地図は出さない
-  $('#main').innerHTML = (state.view === 'saved' ? '' : zoneMap(data, state.zone, state.mapOpen)) + body;
+  // ★ メモの画面はエリアでしぼらないので、地図は出さない。地図はパリだけ
+  $('#main').innerHTML = (state.view === 'saved' ? '' : paris ? zoneMap(data, state.zone, state.mapOpen) : regionNote(state.region, state.view)) + body;
 }
 
 function toggleFav(btn) {
@@ -60,6 +67,7 @@ function act(t) {
     store.set('hashigo-puces:fav', saved.fav); store.set('hashigo-puces:memo', saved.memo);
   } else if (t.dataset.view) { state.view = t.dataset.view; store.set('hashigo-puces:view', state.view); }
   else if (t.dataset.date) { state.date = t.dataset.date; if (state.view !== 'hashigo') state.view = 'day'; }
+  else if (t.dataset.region) { state.region = t.dataset.region; store.set('hashigo-puces:region', state.region); }
   else if (t.dataset.zone) { state.zone = state.zone === t.dataset.zone ? 'すべて' : t.dataset.zone; store.set('hashigo-puces:zone', state.zone); }
   else return;
   render();
@@ -67,7 +75,7 @@ function act(t) {
 }
 
 function bind() {
-  const SEL = '[data-fav],[data-forget],[data-view],[data-date],[data-zone]';
+  const SEL = '[data-fav],[data-forget],[data-view],[data-date],[data-region],[data-zone]';
   document.addEventListener('click', (e) => { const t = e.target.closest(SEL); if (t) act(t); });
   // 地図の区はボタンではないので、キーボードでも押せるようにする
   document.addEventListener('keydown', (e) => {

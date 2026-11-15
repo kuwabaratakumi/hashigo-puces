@@ -60,6 +60,9 @@ a { color: inherit; }
   padding: 4px 12px; cursor: pointer; font-size: 13px; display: inline-flex; gap: 6px; align-items: center;
 }
 .chip[aria-pressed="true"] { background: #fff; color: var(--ink); border-color: #fff; }
+.chip--region { border-color: #fff; font-weight: 600; }
+.areas[hidden] { display: none; }
+#regions { flex: 0 0 100%; }
 .chip__n { font-family: var(--num); font-weight: 600; opacity: .75; }
 
 /* ---------- main ---------- */

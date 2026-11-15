@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+export const REGIONS = ['パリ', 'リヨン', '南仏', 'ボルドー', 'トゥールーズ'];
 export const ZONES = ['中心部', '左岸', '右岸・西', '右岸・北', '右岸・東'];
 // 区 → エリア（このサイトでの分け方）
 const ZONE_OF = { 1: '中心部', 2: '中心部', 3: '中心部', 4: '中心部', 5: '左岸', 6: '左岸', 7: '左岸', 13: '左岸', 14: '左岸', 15: '左岸', 8: '右岸・西', 16: '右岸・西', 17: '右岸・西', 9: '右岸・北', 10: '右岸・北', 18: '右岸・北', 19: '右岸・北', 11: '右岸・東', 12: '右岸・東', 20: '右岸・東' };
@@ -45,7 +46,8 @@ async function main() {
   const outMarkets = markets.filter((m) => m.status !== '掲載中止').map((m) => {
     const bad = (msg) => errors.push(`${m.id} ${m.name}: ${msg}`);
     if (ids.has(m.id)) bad('id が重複'); ids.add(m.id);
-    if (!ZONES.includes(m.zone)) bad(`zone が不正 (${m.zone})`);
+    if (!REGIONS.includes(m.region)) bad(`region が不正 (${m.region})`);
+    if (m.region === 'パリ' ? !ZONES.includes(m.zone) : m.zone) bad(`zone が不正 (${m.zone})。パリは ZONES のどれか、ほかの地方は空にする`);
     if (!STATUS.has(m.status)) bad(`status が不正 (${m.status})`);
     if (m.hashigo && !keys.has(m.hashigo)) bad(`hashigo「${m.hashigo}」が hashigo.csv にない`);
     if (m.official_url && !/^https:\/\//.test(m.official_url)) bad('official_url は https:// から');
@@ -57,7 +59,10 @@ async function main() {
       return { open, close, ...(note && { note }) };
     });
     if (!hours.some(Boolean)) bad('開いている曜日が1つもない');
-    return { id: m.id, name: m.name, nameFr: m.name_fr, kind: m.kind, zone: m.zone, area: m.area, address: m.address, metro: m.metro, hours, status: m.status, url: m.official_url, hashigo: m.hashigo, note: m.note, source: m.source };
+    // 月に1〜2回など、決まった日だけ開く市は dates（YYYY-MM-DD を空白でつなぐ）。その日の曜日の時間が入っていること
+    const dates = m.dates ? m.dates.split(/\s+/).filter(Boolean) : null;
+    if (dates) for (const d of dates) { if (!ISO.test(d)) bad(`dates は YYYY-MM-DD (${d})`); else if (!hours[new Date(d + 'T12:00:00Z').getUTCDay()]) bad(`dates の ${d} の曜日に時間がない`); }
+    return { id: m.id, region: m.region, name: m.name, nameFr: m.name_fr, kind: m.kind, zone: m.zone, area: m.area, address: m.address, metro: m.metro, hours, ...(dates && { dates }), status: m.status, url: m.official_url, hashigo: m.hashigo, note: m.note, source: m.source };
   });
 
   const outEvents = events.map((e, i) => {
@@ -76,7 +81,7 @@ async function main() {
 
   const dir = path.join(root, 'public', 'data');
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(path.join(dir, 'puces.json'), JSON.stringify({ builtAt: new Date().toISOString(), zones: ZONES, zoneOf: ZONE_OF, markets: outMarkets, events: outEvents, groups: outGroups, eventsMeta: meta }));
+  await fs.writeFile(path.join(dir, 'puces.json'), JSON.stringify({ builtAt: new Date().toISOString(), regions: REGIONS, zones: ZONES, zoneOf: ZONE_OF, markets: outMarkets, events: outEvents, groups: outGroups, eventsMeta: meta }));
   console.log(`常設 ${outMarkets.length}件・単発 ${outEvents.length}件（${outEvents[0]?.start ?? '-'} 〜 ${outEvents.at(-1)?.end ?? '-'}）・はしごエリア ${outGroups.length}件`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
