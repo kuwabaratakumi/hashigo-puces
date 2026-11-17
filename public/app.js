@@ -1,5 +1,5 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=9d4b6f2c';
-import { dayStrip, parisRow, regionChips, regionNote, zoneMap, franceMap, viewDay, viewHashigo, viewEvents, viewMarkets, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=9d4b6f2c';
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=3f41b3c4';
+import { dayStrip, parisRow, regionChips, regionNote, zoneMap, franceMap, viewDay, viewHashigo, viewEvents, viewMarkets, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=3f41b3c4';
 // パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
@@ -33,13 +33,13 @@ function render() {
   const paris = state.region === 'パリ';
   // 地方は、その地方の常設だけを見せる（単発・はしご・エリアはパリだけ）
   const data = { ...all, markets: all.markets.filter((m) => m.region === state.region), events: paris ? all.events : [], groups: paris ? all.groups : [] };
-  if (!VIEWS.includes(state.view) || (!paris && state.view === 'hashigo')) state.view = 'day';
+  if (!VIEWS.includes(state.view)) state.view = 'day';
   if (!paris || (state.zone !== 'すべて' && !all.zones.includes(state.zone))) state.zone = 'すべて';
   const clampStay = (d) => (d && d >= PERIOD.start && d <= PERIOD.end ? d : '');
   state.stay = { from: clampStay(state.stay.from), to: clampStay(state.stay.to) };
   if (state.stay.from && state.stay.to && state.stay.to < state.stay.from) state.stay = { from: state.stay.to, to: state.stay.from };
   if (!state.date || state.date < PERIOD.start || state.date > PERIOD.end) state.date = clampToPeriod(today);
-  document.querySelectorAll('.view button').forEach((b) => { b.setAttribute('aria-pressed', String(b.dataset.view === state.view)); if (b.dataset.view === 'hashigo') b.hidden = !paris; });
+  document.querySelectorAll('.view button').forEach((b) => { b.setAttribute('aria-pressed', String(b.dataset.view === state.view)) });
   $('#regions').innerHTML = regionChips(all, state.region);
   $('#days').innerHTML = dayStrip(data, today, state.date, state.zone, state.stay);
   $('#parisrow').innerHTML = parisRow(all, state.region, state.zone);
@@ -78,7 +78,7 @@ function act(t) {
   else if ('stayClear' in t.dataset) { state.stay = { from: '', to: '' }; store.set('hashigo-puces:stay', state.stay); }
   else if ('stayAll' in t.dataset) { state.stay = { from: PERIOD.start, to: PERIOD.end }; store.set('hashigo-puces:stay', state.stay); }
   else if (t.dataset.date) { state.date = t.dataset.date; if (state.view !== 'hashigo') state.view = 'day'; }
-  else if (t.dataset.region) { state.region = t.dataset.region; state.frPanel = false; store.set('hashigo-puces:region', state.region); }
+  else if (t.dataset.region) { state.region = t.dataset.region; store.set('hashigo-puces:region', state.region); }
   else if ('frclose' in t.dataset) state.frPanel = false;
   else if (t.dataset.zone) { state.zone = state.zone === t.dataset.zone ? 'すべて' : t.dataset.zone; store.set('hashigo-puces:zone', state.zone); }
   else return;
@@ -90,7 +90,7 @@ function bind() {
   const SEL = '[data-fav],[data-forget],[data-view],[data-date],[data-region],[data-zone],[data-stay-clear],[data-stay-all],[data-frclose]';
   document.addEventListener('click', (e) => {
     if (e.target.closest('#mapbtn')) { state.frPanel = !state.frPanel; return render(); }
-    if (state.frPanel && !e.target.closest('#frpanel')) { state.frPanel = false; render(); }
+    if (state.frPanel && !e.target.closest('#frpanel, .areawrap')) { state.frPanel = false; render(); }
     const t = e.target.closest(SEL); if (t) act(t);
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.frPanel) { state.frPanel = false; render(); $('#mapbtn').focus(); } });
@@ -98,6 +98,40 @@ function bind() {
   document.addEventListener('keydown', (e) => {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('path[data-zone],g[data-zone],[data-region][role="button"]')) { e.preventDefault(); act(e.target); }
   });
+  // 日付の帯をドラッグして、滞在期間をえらぶ（マウス・ペン：そのままドラッグ／タッチ：長押ししてからドラッグ）
+  const strip = $('#days');
+  let drag = null, suppress = false, hold = 0;
+  const dayAt = (x, y) => document.elementFromPoint(x, y)?.closest?.('.day[data-date]');
+  const paint = () => {
+    const [a, b] = [drag.from, drag.to].sort();
+    strip.querySelectorAll('.day').forEach((d) => { d.toggleAttribute('data-drag', d.dataset.date >= a && d.dataset.date <= b); });
+  };
+  const move = (x, y) => { const d = dayAt(x, y); if (d && drag && d.dataset.date !== drag.to) { drag.to = d.dataset.date; drag.moved = true; paint(); } };
+  const finish = () => {
+    if (!drag) return;
+    const { from, to, moved } = drag; drag = null; clearTimeout(hold);
+    strip.querySelectorAll('.day[data-drag]').forEach((d) => d.removeAttribute('data-drag'));
+    if (!moved || from === to) return;
+    suppress = true; setTimeout(() => { suppress = false; }, 0);
+    const [a, b] = [from, to].sort();
+    state.stay = { from: a, to: b }; state.view = 'hashigo';
+    store.set('hashigo-puces:stay', state.stay); store.set('hashigo-puces:view', state.view);
+    render(); $('#main').scrollIntoView({ block: 'start' });
+  };
+  strip.addEventListener('pointerdown', (e) => {
+    const d = e.target.closest('.day[data-date]'); if (!d || e.pointerType === 'touch' || e.button > 0) return;
+    drag = { from: d.dataset.date, to: d.dataset.date, moved: false };
+  });
+  document.addEventListener('pointermove', (e) => { if (drag && e.pointerType !== 'touch') move(e.clientX, e.clientY); });
+  document.addEventListener('pointerup', (e) => { if (e.pointerType !== 'touch') finish(); });
+  document.addEventListener('click', (e) => { if (suppress) { e.stopPropagation(); e.preventDefault(); } }, true);
+  strip.addEventListener('touchstart', (e) => {
+    const t = e.touches[0], d = dayAt(t.clientX, t.clientY); if (!d) return;
+    hold = setTimeout(() => { drag = { from: d.dataset.date, to: d.dataset.date, moved: false, touch: true }; paint(); navigator.vibrate?.(20); }, 450);
+  }, { passive: true });
+  strip.addEventListener('touchmove', (e) => { if (drag?.touch) { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); } else clearTimeout(hold); }, { passive: false });
+  strip.addEventListener('touchend', () => { clearTimeout(hold); if (drag?.touch) { const moved = drag.moved; finish(); if (moved) suppress = true, setTimeout(() => { suppress = false; }, 400); } });
+  strip.addEventListener('touchcancel', () => { clearTimeout(hold); drag = null; strip.querySelectorAll('.day[data-drag]').forEach((d) => d.removeAttribute('data-drag')); });
   // 滞在期間の始点・終点。片方だけえらんだときは、もう片方を同じ日にする
   document.addEventListener('change', (e) => {
     const t = e.target;

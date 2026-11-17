@@ -110,6 +110,16 @@ console.log('テストOK');
   assert.deepEqual(ids('ストラスブール', '2027-01-03'), []);         // 日は休み
   assert.ok(ids('リヨン', '2027-01-30').includes('l001') && ids('リヨン', '2027-02-27').includes('l001')); // 最終土曜
   assert.ok(!ids('リヨン', '2027-01-23').includes('l001'));
+  { // 地方にも「はしご」：その日に開く市を1つにまとめ、ルートは車
+    const { viewHashigo, setZones: sz } = await import('../public/views.js');
+    const fs = await import('node:fs/promises');
+    const d = JSON.parse(await fs.readFile(new URL('../public/data/puces.json', import.meta.url), 'utf8')); sz(d.zones);
+    const sud = { ...d, markets: d.markets.filter((m) => m.region === '南仏'), events: [], groups: [] };
+    const one = viewHashigo(sud, { date: '2027-01-03', zone: 'すべて', stay: { from: '', to: '' }, region: '南仏' });
+    assert.ok(one.includes('combo__route') && one.includes('travelmode=driving') && one.includes('車'));
+    const rng = viewHashigo(sud, { date: '2027-01-03', zone: 'すべて', stay: { from: '2027-01-01', to: '2027-01-03' }, region: '南仏' });
+    assert.ok(rng.includes('stayday__title'));
+  }
   console.log('地方テストOK');
 }
 

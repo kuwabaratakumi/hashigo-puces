@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=9d4b6f2c';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=9d4b6f2c';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=9d4b6f2c';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=3f41b3c4';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=3f41b3c4';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=3f41b3c4';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -136,7 +136,7 @@ export function regionChips(data, region) {
 /** 地方では、載せているものの範囲を最初に知らせる */
 export function regionNote(region, view) {
   if (view === 'saved') return '';
-  return `<p class="notice">${esc(region)}は、毎週や毎月、決まった日に開く市だけを載せています。単発の市（サロンなど）と、はしごの組み合わせは、パリだけです。曜日と時間は観光局や市の案内によるもので、行く前に公式の案内も見てください。</p>`;
+  return `<p class="notice">${esc(region)}は、毎週や毎月、決まった日に開く市だけを載せています。単発の市（サロンなど）は、パリだけです。「はしご」では、その日に開く市を並べます。曜日と時間は観光局や市の案内によるもので、行く前に公式の案内も見てください。</p>`;
 }
 
 export function zoneChips(data, zone) {
@@ -164,7 +164,7 @@ export function viewDay(data, { date, zone }) {
 
 /* ---------- はしご ---------- */
 /** Googleマップのルート（徒歩）。常設は住所、単発は場所の名前と区で、まわる順に並べる */
-export function routeUrl(markets, events) {
+export function routeUrl(markets, events, mode = 'walking') {
   const stops = [
     ...markets.map((x) => x.market.address.replace(/\s*\/\s*/g, ' & ')),
     ...events.map((e) => `${e.place}, Paris ${e.arr[0]}e`),
@@ -172,17 +172,17 @@ export function routeUrl(markets, events) {
   if (stops.length < 2) return '';
   const q = (t) => encodeURIComponent(t);
   const mid = stops.slice(1, -1);
-  return `https://www.google.com/maps/dir/?api=1&origin=${q(stops[0])}&destination=${q(stops.at(-1))}${mid.length ? `&waypoints=${mid.map(q).join('%7C')}` : ''}&travelmode=walking`;
+  return `https://www.google.com/maps/dir/?api=1&origin=${q(stops[0])}&destination=${q(stops.at(-1))}${mid.length ? `&waypoints=${mid.map(q).join('%7C')}` : ''}&travelmode=${mode}`;
 }
 function combo(data, group, markets, events, single) {
   const n = markets.length + events.length;
-  const route = routeUrl(markets, events);
+  const route = routeUrl(markets, events, group.mode);
   const order = markets.map((x) => `${esc(x.market.name)}（${hm(x.hours.open)}〜${hm(x.hours.close)}）`).join(' → ');
   return `<section class="combo">
       <header class="combo__head">
         <h2 class="combo__name">${esc(group.title)}</h2>
         <p class="combo__sub">${esc(group.note)}</p>
-        ${route ? `<p class="combo__route"><a class="btn" href="${esc(route)}" target="_blank" rel="noopener">Googleマップでルートを見る（徒歩）</a></p>` : ''}
+        ${route ? `<p class="combo__route"><a class="btn" href="${esc(route)}" target="_blank" rel="noopener">Googleマップでルートを見る（${group.mode === 'driving' ? '車' : '徒歩'}）</a></p>` : ''}
       </header>
       ${single && n < 2 ? '<p class="combo__note">この日に開くのは1か所だけです。</p>' : ''}
       ${markets.length > 1 ? `<p class="combo__note">早く開く順：${order}</p>` : ''}
@@ -190,7 +190,12 @@ function combo(data, group, markets, events, single) {
     </section>`;
 }
 /** その日の、条件にあうはしご（エリアでしぼる） */
-function combosOn(data, date, zone) {
+function combosOn(data, date, zone, region = 'パリ') {
+  // 地方は、その地方でその日に開く市を1つにまとめる（町どうしは離れていることがある）
+  if (region !== 'パリ') {
+    const ms = marketsOn(data.markets, date);
+    return ms.length ? [{ group: { title: `${region}で、この日に開く市`, note: '町どうしは離れていることがあります。ルートで時間を確かめてください', mode: 'driving' }, markets: ms, events: [] }] : [];
+  }
   return hashigoOn(data.groups, data.markets, data.events, date).filter(({ markets, events }) => {
     if (!markets.length && !events.length) return false;
     return zone === 'すべて' || [...markets.map((x) => x.market.zone), ...events.map((e) => e.zone)].includes(zone);
@@ -208,15 +213,15 @@ function stayForm(stay) {
       <button type="button" class="btn btn--ghost" data-stay-all>全期間</button>
       ${on ? '<button type="button" class="btn btn--ghost" data-stay-clear>1日ずつ見る</button>' : ''}
     </div>
-    <p class="stay__hint">${on ? '期間中の、2か所以上まわれる日をまとめて出しています。' : '2つの日付をえらぶと、期間中のはしごを日ごとに出します。上の日付の帯でえらんだ1日だけを見ることもできます。'}</p>
+    <p class="stay__hint">${on ? '期間中の、2か所以上まわれる日をまとめて出しています。' : '2つの日付をえらぶと、期間中のはしごを日ごとに出します。上の日付の帯をドラッグしても期間をえらべます。帯の日を1つ押すと、その1日だけを見られます。'}</p>
   </div>`;
 }
-export function viewHashigo(data, { date, zone, stay }) {
+export function viewHashigo(data, { date, zone, stay, region = 'パリ' }) {
   const form = stayForm(stay);
   if (stay.from && stay.to) {
     const days = [];
     for (let d = stay.from; d <= stay.to; d = addDays(d, 1)) days.push(d);
-    const rows = days.map((d) => ({ d, sets: combosOn(data, d, zone).filter(({ markets, events }) => markets.length + events.length >= 2) }));
+    const rows = days.map((d) => ({ d, sets: combosOn(data, d, zone, region).filter(({ markets, events }) => markets.length + events.length >= 2) }));
     const hit = rows.filter((r) => r.sets.length);
     const none = rows.filter((r) => !r.sets.length).map((r) => mdw(r.d));
     const html = hit.map((r) => `<section class="stayday"><h2 class="stayday__title">${mdw(r.d)}</h2>${r.sets.map(({ group, markets, events }) => combo(data, group, markets, events, false)).join('')}</section>`).join('');
@@ -224,9 +229,9 @@ export function viewHashigo(data, { date, zone, stay }) {
       + (html || '<p class="empty">この期間に、2か所以上まわれる日は見つかっていません。期間をのばすか、エリアを「すべて」にしてみてください</p>')
       + (none.length && hit.length ? `<p class="lead">ほかの日は、まわれる市が1か所以下です：${none.join('、')}</p>` : '');
   }
-  const sets = combosOn(data, date, zone);
+  const sets = combosOn(data, date, zone, region);
   const html = sets.map(({ group, markets, events }) => combo(data, group, markets, events, true)).join('');
-  return form + `<p class="lead">${mdw(date)}に、近くでまとめて回れる蚤の市です。単発の市は、同じ区や近くの区のものを並べています。</p>` + stale(data, date)
+  return form + `<p class="lead">${mdw(date)}${region === 'パリ' ? 'に、近くでまとめて回れる蚤の市です。単発の市は、同じ区や近くの区のものを並べています。' : `に、${esc(region)}で開く蚤の市です。`}</p>` + stale(data, date)
     + (html || '<p class="empty">この日は、近くで回れる組み合わせがありません。土曜か日曜をえらんでみてください</p>');
 }
 
