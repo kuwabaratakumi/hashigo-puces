@@ -119,3 +119,21 @@ console.log('テストOK');
   assert.ok(FR_CITIES['ボルドー'].x < FR_CITIES['パリ'].x && FR_CITIES['パリ'].x < FR_CITIES['リヨン'].x);       // 西から東
   console.log('フランス地図テストOK');
 }
+
+{
+  const { viewHashigo, zoneMap, marketCard, setZones } = await import('../public/views.js');
+  const data = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('../public/data/puces.json', import.meta.url), 'utf8'));
+  setZones(data.zones);
+  const paris = { ...data, markets: data.markets.filter((m) => m.region === 'パリ') };
+  // 滞在期間: 日曜(2027-01-03)と月曜をふくむ期間で、はしごが日ごとに出る
+  const r = viewHashigo(paris, { date: '2027-01-03', zone: 'すべて', stay: { from: '2027-01-01', to: '2027-01-10' } });
+  assert.ok(r.includes('stayday__title') && r.includes('10日間'.replace('10', '10')) && r.includes('id="stayFrom"'));
+  const one = viewHashigo(paris, { date: '2027-01-03', zone: 'すべて', stay: { from: '', to: '' } });
+  assert.ok(!one.includes('stayday') && one.includes('id="stayTo"'));
+  // 地図: 見出しとピン
+  const map = zoneMap(paris, 'すべて', true, '2027-01-03');
+  assert.ok(map.includes('パリのエリアからえらぶ') && map.includes('class="map__pin"'));
+  // カードの帯の色はエリアの番号
+  assert.ok(marketCard(paris.markets.find((m) => m.zone === '左岸'), null).includes(`data-z="${data.zones.indexOf('左岸')}"`));
+  console.log('滞在・ピンテストOK');
+}
