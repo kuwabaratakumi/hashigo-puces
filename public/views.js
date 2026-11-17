@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=3f41b3c4';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=3f41b3c4';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=3f41b3c4';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=a89422b0';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=a89422b0';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=a89422b0';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -309,8 +309,8 @@ export function zoneMap(data, zone, open, date) {
   return `<details class="mapbox" id="mapbox" ${open ? 'open' : ''}>
     <summary>パリのエリアからえらぶ<span class="mapbox__now">${zone === 'すべて' ? 'すべて表示中' : `${esc(zone)}を表示中`}</span></summary>
     <div class="mapbox__body">
-      <svg class="map" viewBox="-4 -30 ${MAP_W + 8} ${MAP_H + 34}" role="group" aria-label="パリ20区の地図。区やピンを押すとエリアをえらべます">${paths}${nums}${pins}</svg>
       <div class="map__legend">${legend}<p class="map__note">数字は区。ピンは、えらんだ日に開く市（常設と単発）です。常設は住所の近く、単発は区の中心に立てています。サン＝トゥアンは「右岸・北」に入れています。</p></div>
+      <svg class="map" viewBox="-4 -30 ${MAP_W + 8} ${MAP_H + 34}" role="group" aria-label="パリ20区の地図。区やピンを押すとエリアをえらべます">${paths}${nums}${pins}</svg>
     </div>
   </details>`;
 }

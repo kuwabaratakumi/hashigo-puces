@@ -1,5 +1,5 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=3f41b3c4';
-import { dayStrip, parisRow, regionChips, regionNote, zoneMap, franceMap, viewDay, viewHashigo, viewEvents, viewMarkets, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=3f41b3c4';
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=a89422b0';
+import { dayStrip, parisRow, regionChips, regionNote, zoneMap, franceMap, viewDay, viewHashigo, viewEvents, viewMarkets, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=a89422b0';
 // パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
