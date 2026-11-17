@@ -137,3 +137,21 @@ console.log('テストOK');
   assert.ok(marketCard(paris.markets.find((m) => m.zone === '左岸'), null).includes(`data-z="${data.zones.indexOf('左岸')}"`));
   console.log('滞在・ピンテストOK');
 }
+
+{
+  // 版番号: 参照にハッシュが付き、もう一度走らせても変わらない
+  const fs = await import('node:fs/promises');
+  const { stamp, version } = await import('./stamp.mjs');
+  const a = await stamp();
+  const b = await stamp();
+  assert.match(a.version, /^[0-9a-f]{8}$/);
+  assert.equal(b.version, a.version);
+  assert.deepEqual(b.changed, []);
+  const idx = await fs.readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.ok(idx.includes(`href="style.css?v=${a.version}"`) && idx.includes(`src="app.js?v=${a.version}"`));
+  assert.ok(idx.includes('fonts.googleapis.com/css2?family=') && !/fonts\.googleapis\.com[^"]*\?v=/.test(idx)); // 外部のURLは触らない
+  const views = await fs.readFile(new URL('../public/views.js', import.meta.url), 'utf8');
+  assert.ok(views.includes(`from './schedule.js?v=${a.version}'`) && views.includes(`from './france-map.js?v=${a.version}'`));
+  assert.equal(await version(), a.version);
+  console.log('版番号テストOK');
+}

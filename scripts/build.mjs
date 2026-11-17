@@ -3,6 +3,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { stamp } from './stamp.mjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const REGIONS = ['パリ', 'リヨン', '南仏', 'ボルドー', 'トゥールーズ'];
@@ -83,5 +84,7 @@ async function main() {
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, 'puces.json'), JSON.stringify({ builtAt: new Date().toISOString(), regions: REGIONS, zones: ZONES, zoneOf: ZONE_OF, markets: outMarkets, events: outEvents, groups: outGroups, eventsMeta: meta }));
   console.log(`常設 ${outMarkets.length}件・単発 ${outEvents.length}件（${outEvents[0]?.start ?? '-'} 〜 ${outEvents.at(-1)?.end ?? '-'}）・はしごエリア ${outGroups.length}件`);
+  const v = await stamp();
+  console.log(`版番号 ${v.version}（更新: ${v.changed.join(', ') || 'なし'}）`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
