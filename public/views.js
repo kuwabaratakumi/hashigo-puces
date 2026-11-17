@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=28b1aaea';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=28b1aaea';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD } from './france-map.js?v=28b1aaea';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=9d4b6f2c';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=9d4b6f2c';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=9d4b6f2c';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -121,9 +121,16 @@ export function dayStrip(data, today, selected, zone, stay) {
   }).join('');
 }
 
+const regionChip = (data, r, region) => `<button type="button" class="chip chip--region" data-region="${esc(r)}" aria-pressed="${r === region}">${esc(r)}<span class="chip__n">${data.markets.filter((m) => m.region === r).length}</span></button>`;
+/** 1段目：パリのボタンと、その右にパリのエリア（パリをえらんでいるときだけ） */
+export function parisRow(data, region, zone) {
+  const paris = data.markets.filter((m) => m.region === 'パリ');
+  const zones = region === 'パリ' ? `<span class="areas__sep" aria-hidden="true"></span>${zoneChips({ ...data, markets: paris }, zone)}` : '';
+  return regionChip(data, 'パリ', region) + zones;
+}
+/** 2段目：パリ以外の地方 */
 export function regionChips(data, region) {
-  const count = (r) => data.markets.filter((m) => m.region === r).length;
-  return data.regions.map((r) => `<button type="button" class="chip chip--region" data-region="${esc(r)}" aria-pressed="${r === region}">${esc(r)}<span class="chip__n">${count(r)}</span></button>`).join('');
+  return data.regions.filter((r) => r !== 'パリ').map((r) => regionChip(data, r, region)).join('');
 }
 
 /** 地方では、載せているものの範囲を最初に知らせる */
@@ -156,13 +163,26 @@ export function viewDay(data, { date, zone }) {
 }
 
 /* ---------- はしご ---------- */
+/** Googleマップのルート（徒歩）。常設は住所、単発は場所の名前と区で、まわる順に並べる */
+export function routeUrl(markets, events) {
+  const stops = [
+    ...markets.map((x) => x.market.address.replace(/\s*\/\s*/g, ' & ')),
+    ...events.map((e) => `${e.place}, Paris ${e.arr[0]}e`),
+  ];
+  if (stops.length < 2) return '';
+  const q = (t) => encodeURIComponent(t);
+  const mid = stops.slice(1, -1);
+  return `https://www.google.com/maps/dir/?api=1&origin=${q(stops[0])}&destination=${q(stops.at(-1))}${mid.length ? `&waypoints=${mid.map(q).join('%7C')}` : ''}&travelmode=walking`;
+}
 function combo(data, group, markets, events, single) {
   const n = markets.length + events.length;
+  const route = routeUrl(markets, events);
   const order = markets.map((x) => `${esc(x.market.name)}（${hm(x.hours.open)}〜${hm(x.hours.close)}）`).join(' → ');
   return `<section class="combo">
       <header class="combo__head">
         <h2 class="combo__name">${esc(group.title)}</h2>
         <p class="combo__sub">${esc(group.note)}</p>
+        ${route ? `<p class="combo__route"><a class="btn" href="${esc(route)}" target="_blank" rel="noopener">Googleマップでルートを見る（徒歩）</a></p>` : ''}
       </header>
       ${single && n < 2 ? '<p class="combo__note">この日に開くのは1か所だけです。</p>' : ''}
       ${markets.length > 1 ? `<p class="combo__note">早く開く順：${order}</p>` : ''}
@@ -228,29 +248,24 @@ export function viewMarkets(data, { zone }) {
   return `<p class="lead">毎週決まった曜日に開く蚤の市です（月に1〜2回だけのものは、開催日を書いています）。祝日や夏休みは、時間が変わることがあります。</p>` + grid(list.map((m) => marketCard(m, null)));
 }
 
-/* ---------- フランス全体の地図 ---------- */
-export function franceMap(data, region, open) {
+/* ---------- フランス全体の地図（ヘッダーの地図アイコンで開く） ---------- */
+export function franceMap(data, region) {
   const count = (r) => data.markets.filter((m) => m.region === r).length;
   const pin = (r, c) => `<g class="fr__pin" data-region="${esc(r)}" role="button" tabindex="0" aria-pressed="${r === region}" aria-label="${esc(r)}（${count(r)}件）">
-      <title>${esc(r)}（${count(r)}件）</title><circle class="fr__dot" cx="${c.x}" cy="${c.y}" r="11"/><text class="fr__label" x="${c.x}" y="${c.y - 17}">${esc(r)}</text></g>`;
+      <title>${esc(r)}（${count(r)}件）</title><circle class="fr__dot" cx="${c.x}" cy="${c.y}" r="11"/>${(FR_EXTRA[r] || []).map((t) => `<circle class="fr__town" cx="${t.x}" cy="${t.y}" r="4"/><text class="fr__town-name" x="${t.x}" y="${t.y + 24}">${t.n}</text>`).join('')}<text class="fr__label" x="${Math.min(c.x, FR_W - 105)}" y="${c.y - 17}">${esc(r)}</text></g>`;
   const sud = `<g class="fr__pin" data-region="南仏" role="button" tabindex="0" aria-pressed="${region === '南仏'}" aria-label="南仏（${count('南仏')}件）">
       <title>南仏（${count('南仏')}件）</title><ellipse class="fr__zone" cx="515" cy="522" rx="98" ry="30"/>
       ${FR_SUD.map((c) => `<circle class="fr__town" cx="${c.x}" cy="${c.y}" r="4"/>`).join('')}
-      <text class="fr__label" x="515" y="${490}">南仏</text>
+      <text class="fr__label" x="515" y="490">南仏</text>
       <text class="fr__town-name" x="505" y="563">マルセイユ</text><text class="fr__town-name" x="596" y="505">ニース</text><text class="fr__town-name" x="433" y="545">モンペリエ</text></g>`;
-  return `<details class="mapbox" id="francebox" ${open ? 'open' : ''}>
-    <summary>フランスのどのあたり？<span class="mapbox__now">${esc(region)}を表示中</span></summary>
-    <div class="mapbox__body">
-      <svg class="map map--fr" viewBox="-10 -30 ${FR_W + 20} ${FR_H + 40}" role="group" aria-label="フランス本土の地図。パリ、リヨン、南仏、ボルドー、トゥールーズの位置。押すと地方をえらべます">
-        <path class="fr__land" d="${FR_OUTLINE}"/>
-        ${pin('パリ', FR_CITIES['パリ'])}${pin('リヨン', FR_CITIES['リヨン'])}${pin('ボルドー', FR_CITIES['ボルドー'])}${pin('トゥールーズ', FR_CITIES['トゥールーズ'])}${sud}
-      </svg>
-      <p class="map__note map__note--side">丸や楕円を押すと、その地方の市に切りかわります。南仏には、マルセイユ・ニース・モンペリエ・アルル・リル＝シュル＝ラ＝ソルグ・エクスを入れています。コルシカ島は載せていません。</p>
-    </div>
-  </details>`;
+  return `<div class="frpanel__head"><b>フランスのどのあたり？</b><button type="button" class="frpanel__close" data-frclose aria-label="とじる">×</button></div>
+    <svg class="map map--fr" viewBox="-10 -30 ${FR_W + 20} ${FR_H + 40}" role="group" aria-label="フランス本土の地図。パリ、リヨン、南仏、ボルドー、トゥールーズ、ストラスブールの位置。押すと地方をえらべます">
+      <path class="fr__land" d="${FR_OUTLINE}"/>
+      ${pin('パリ', FR_CITIES['パリ'])}${pin('リヨン', FR_CITIES['リヨン'])}${pin('ボルドー', FR_CITIES['ボルドー'])}${pin('トゥールーズ', FR_CITIES['トゥールーズ'])}${pin('ストラスブール', FR_CITIES['ストラスブール'])}${sud}
+    </svg>
+    <p class="map__note">丸や楕円を押すと、その地方の市に切りかわります。南仏には、マルセイユ・ニース・モンペリエ・アルル・ニーム・アヴィニョン・リル＝シュル＝ラ＝ソルグ・エクスを入れています。リヨンにはアヌシー、トゥールーズにはアルビも入れています。コルシカ島は載せていません。</p>`;
 }
 
-/* ---------- 地図でエリアをえらぶ ---------- */
 /** 地図に立てるピン：その日に開く常設と単発。常設は番地に近い緯度経度、単発は区の中心 */
 // 地図の範囲（パリ市域の緯度経度）。この範囲を paris-map.js の 600×321 に写している
 const LL = { lon0: 2.2241, lon1: 2.4699, lat0: 48.8156, lat1: 48.9022 };

@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { stamp } from './stamp.mjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-export const REGIONS = ['パリ', 'リヨン', '南仏', 'ボルドー', 'トゥールーズ'];
+export const REGIONS = ['パリ', 'リヨン', '南仏', 'ボルドー', 'トゥールーズ', 'ストラスブール'];
 export const ZONES = ['中心部', '左岸', '右岸・西', '右岸・北', '右岸・東'];
 // 区 → エリア（このサイトでの分け方）
 const ZONE_OF = { 1: '中心部', 2: '中心部', 3: '中心部', 4: '中心部', 5: '左岸', 6: '左岸', 7: '左岸', 13: '左岸', 14: '左岸', 15: '左岸', 8: '右岸・西', 16: '右岸・西', 17: '右岸・西', 9: '右岸・北', 10: '右岸・北', 18: '右岸・北', 19: '右岸・北', 11: '右岸・東', 12: '右岸・東', 20: '右岸・東' };

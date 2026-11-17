@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=28b1aaea">
+<link rel="stylesheet" href="style.css?v=9d4b6f2c">
 </head>
 <body>
 <header class="top">
@@ -29,9 +29,13 @@
       <button type="button" data-view="saved" aria-pressed="false">★ メモ</button>
     </div>
     <div class="areawrap">
-      <div class="areas" id="regions" role="group" aria-label="地方"></div>
-      <div class="areas" id="zones" role="group" aria-label="エリア"></div>
+      <div class="areas" id="parisrow" role="group" aria-label="パリとエリア"></div>
+      <div class="areas" id="regions" role="group" aria-label="パリ以外の地方"></div>
     </div>
+    <button type="button" class="mapbtn" id="mapbtn" aria-expanded="false" aria-controls="frpanel" aria-label="フランスのどのあたりか、地図を開く" title="フランスのどのあたり？">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>
+    </button>
+    <div class="frpanel" id="frpanel" hidden role="dialog" aria-label="フランスのどのあたり？"></div>
   </div>
 </header>
 
@@ -41,6 +45,6 @@
   <p>単発の市は、パリ市が公開している一覧から日付と場所を載せています。<strong>出かける前に必ず主催者や公式の案内を確認してください。</strong></p>
   <p><a href="https://hashigo-map.com/">はしごマップ</a>のサイトです ・ <a href="about.html">このサイトについて</a> ・ <span id="builtAt"></span></p>
 </footer>
-<script type="module" src="app.js?v=28b1aaea"></script>
+<script type="module" src="app.js?v=9d4b6f2c"></script>
 </body>
 </html>

@@ -142,7 +142,7 @@ a { color: inherit; }
   .day__d { font-size: 24px; }
   .tools { flex-direction: column; align-items: stretch; }
   .view { align-self: flex-start; }
-  .areawrap { flex: none; }
+  .areawrap { flex: none; width: 100%; min-width: 0; }
   .areas { flex: none; padding-bottom: 2px; }
   .grid { grid-template-columns: 1fr; }
   .main { scroll-margin-top: 230px; }
@@ -210,14 +210,14 @@ a { color: inherit; }
 @media (max-width: 640px) { .view { max-width: 100%; overflow-x: auto; } .view button { padding-inline: 12px; white-space: nowrap; } }
 
 /* ---------- フランス全体の地図 ---------- */
-.map--fr { flex: 0 1 190px; max-width: 190px; }
+.map--fr { display: block; flex: none; width: 100%; max-width: 280px; margin: 4px auto 0; }
 .fr__land { fill: #e7e3d8; stroke: #bdb8a8; stroke-width: 1.5; stroke-linejoin: round; }
 .fr__pin { cursor: pointer; outline: none; }
 .fr__dot { fill: var(--accent); stroke: #fff; stroke-width: 3; }
 .fr__zone { fill: rgba(163, 64, 47, .18); stroke: var(--accent); stroke-width: 2; }
 .fr__town { fill: var(--accent); stroke: #fff; stroke-width: 1.5; }
-.fr__label { font-size: 26px; font-weight: 700; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 5px; pointer-events: none; }
-.fr__town-name { font-size: 17px; fill: var(--ink-2); text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 3px; pointer-events: none; }
+.fr__label { font-size: 28px; font-weight: 700; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 5px; pointer-events: none; }
+.fr__town-name { font-size: 19px; fill: var(--ink-2); text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 3px; pointer-events: none; }
 .fr__pin[aria-pressed="true"] .fr__dot { fill: var(--ink); }
 .fr__pin[aria-pressed="true"] .fr__zone { fill: rgba(35, 38, 43, .22); stroke: var(--ink); }
 .fr__pin:hover .fr__dot, .fr__pin:hover .fr__zone { stroke-width: 4; }
@@ -244,3 +244,17 @@ a { color: inherit; }
 .day[data-stay]:not([aria-current="date"]) { box-shadow: inset 0 -3px 0 #f0a898; }
 
 .map__note--side { flex: 1 1 220px; align-self: center; }
+
+/* ---------- ヘッダー右下の地図アイコン ---------- */
+.top { position: sticky; }
+.mapbtn { flex: none; margin-left: auto; align-self: flex-end; width: 40px; height: 40px; border-radius: 50%; border: 1px solid #fff; background: transparent; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.mapbtn:hover, .mapbtn[aria-expanded="true"] { background: #fff; color: var(--ink); }
+.frpanel { position: absolute; right: 16px; top: 100%; z-index: 20; width: min(320px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); border: 1px solid var(--soft-line); border-radius: 14px; box-shadow: 0 10px 28px rgba(0, 0, 0, .28); padding: 10px 14px 12px; max-height: calc(100vh - 160px); overflow-y: auto; }
+.frpanel[hidden] { display: none; }
+.frpanel__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.frpanel__close { border: 0; background: transparent; font-size: 22px; line-height: 1; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; color: var(--ink-2); }
+.frpanel__close:hover { background: var(--grey-bg); }
+.frpanel .map__note { margin: 6px 0 0; }
+.areas__sep { flex: none; width: 1px; align-self: stretch; background: #5b616b; margin: 2px 4px; }
+.combo__route { margin: 8px 0 0; }
+@media (max-width: 640px) { .mapbtn { align-self: flex-end; } .frpanel { right: 8px; } }

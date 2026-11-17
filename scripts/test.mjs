@@ -80,7 +80,7 @@ console.log('テストOK');
 {
   const fs = await import('node:fs');
   const j = JSON.parse(fs.readFileSync(new URL('../public/data/puces.json', import.meta.url), 'utf8'));
-  assert.deepEqual(j.regions, ['パリ', 'リヨン', '南仏', 'ボルドー', 'トゥールーズ']);
+  assert.deepEqual(j.regions, ['パリ', 'リヨン', '南仏', 'ボルドー', 'トゥールーズ', 'ストラスブール']);
   for (const m of j.markets) {
     assert.ok(j.regions.includes(m.region), `${m.id} の region`);
     if (m.region !== 'パリ') assert.equal(m.zone, '', `${m.id} は地方なので zone は空`);
@@ -97,24 +97,31 @@ console.log('テストOK');
   assert.deepEqual(marketsOn(j.markets.filter((m) => m.region === '南仏'), '2027-01-04').map((x) => x.market.id).sort(), ['s003', 's004']);
   // 決まった日だけ開く市（dates）：トゥールーズのブロカント・デ・アレとアルル
   const ids = (r, d) => marketsOn(j.markets.filter((m) => m.region === r), d).map((x) => x.market.id).sort();
-  assert.deepEqual(ids('トゥールーズ', '2027-01-02'), ['t001', 't002']); // 土：第1週の3日間 + サン＝トーバン
-  assert.deepEqual(ids('トゥールーズ', '2027-01-09'), ['t002']);         // 土：第2週は t001 は休み
+  assert.deepEqual(ids('トゥールーズ', '2027-01-02'), ['t001', 't002', 't003']); // 土：第1週の3日間 + サン＝トーバン + アルビ
+  assert.deepEqual(ids('トゥールーズ', '2027-01-09'), ['t002', 't003']); // 土：第2週は t001 は休み
   assert.deepEqual(ids('トゥールーズ', '2027-02-07'), ['t001']);         // 日：第1週
   assert.ok(ids('南仏', '2027-01-06').includes('s008'));                  // アルル 第1水曜
   assert.ok(!ids('南仏', '2027-01-13').includes('s008'));                 // 第2水曜は休み
   assert.ok(ids('南仏', '2027-02-17').includes('s008'));                  // 第3水曜
+  assert.deepEqual(ids('南仏', '2027-01-03').includes('s009'), true);     // アヴィニョン 日曜
+  assert.ok(ids('南仏', '2027-01-01').includes('s011') && ids('南仏', '2027-01-02').includes('s010')); // ニーム金・ヴィルヌーヴ土
+  assert.deepEqual(ids('ストラスブール', '2027-01-01'), ['x001']);   // 金
+  assert.deepEqual(ids('ストラスブール', '2027-01-02'), ['x001']);   // 土
+  assert.deepEqual(ids('ストラスブール', '2027-01-03'), []);         // 日は休み
+  assert.ok(ids('リヨン', '2027-01-30').includes('l001') && ids('リヨン', '2027-02-27').includes('l001')); // 最終土曜
+  assert.ok(!ids('リヨン', '2027-01-23').includes('l001'));
   console.log('地方テストOK');
 }
 
 {
   const { franceMap } = await import('../public/views.js');
   const { FR_CITIES, FR_SUD, FR_OUTLINE } = await import('../public/france-map.js');
-  const regions = ['パリ', 'リヨン', '南仏', 'ボルドー', 'トゥールーズ'];
-  const html = franceMap({ markets: [{ region: 'リヨン' }] }, 'リヨン', true);
+  const regions = ['パリ', 'リヨン', '南仏', 'ボルドー', 'トゥールーズ', 'ストラスブール'];
+  const html = franceMap({ markets: [{ region: 'リヨン' }] }, 'リヨン');
   for (const r of regions) assert.ok(html.includes(`data-region="${r}"`), `${r} のマーカー`);
-  assert.ok(html.includes('aria-pressed="true"') && html.startsWith('<details'));
-  assert.deepEqual(Object.keys(FR_CITIES).sort(), ['パリ', 'リヨン', 'ボルドー', 'トゥールーズ'].sort());
-  assert.ok(FR_SUD.length >= 3 && FR_OUTLINE.startsWith('M'));
+  assert.ok(html.includes('aria-pressed="true"') && html.includes('data-frclose'));
+  assert.deepEqual(Object.keys(FR_CITIES).sort(), ['パリ', 'リヨン', 'ボルドー', 'トゥールーズ', 'ストラスブール'].sort());
+  assert.ok(FR_SUD.length >= 8 && FR_OUTLINE.startsWith('M'));
   assert.ok(FR_CITIES['パリ'].y < FR_CITIES['リヨン'].y && FR_CITIES['リヨン'].y < FR_CITIES['トゥールーズ'].y); // 北から南
   assert.ok(FR_CITIES['ボルドー'].x < FR_CITIES['パリ'].x && FR_CITIES['パリ'].x < FR_CITIES['リヨン'].x);       // 西から東
   console.log('フランス地図テストOK');
@@ -154,4 +161,23 @@ console.log('テストOK');
   assert.ok(views.includes(`from './schedule.js?v=${a.version}'`) && views.includes(`from './france-map.js?v=${a.version}'`));
   assert.equal(await version(), a.version);
   console.log('版番号テストOK');
+}
+
+{
+  // 1段目はパリとパリのエリア、2段目はパリ以外の地方。Googleマップのルート
+  const { parisRow, regionChips, routeUrl } = await import('../public/views.js');
+  const fs = await import('node:fs/promises');
+  const data = JSON.parse(await fs.readFile(new URL('../public/data/puces.json', import.meta.url), 'utf8'));
+  const row1 = parisRow(data, 'パリ', 'すべて');
+  assert.ok(row1.indexOf('data-region="パリ"') < row1.indexOf('data-zone="中心部"') && !row1.includes('data-region="リヨン"'));
+  assert.ok(!parisRow(data, 'リヨン', 'すべて').includes('data-zone'));
+  const row2 = regionChips(data, 'パリ');
+  assert.ok(row2.includes('data-region="リヨン"') && row2.includes('data-region="トゥールーズ"') && !row2.includes('data-region="パリ"'));
+  const m = (id) => ({ market: data.markets.find((x) => x.id === id) });
+  const u = routeUrl([m('p002'), m('p001')], []);
+  assert.ok(u.startsWith('https://www.google.com/maps/dir/?api=1&origin=') && u.includes('&destination=') && u.endsWith('&travelmode=walking') && !u.includes('waypoints'));
+  const u3 = routeUrl([m('p003'), m('p004')], [{ place: 'rue de Vaugirard', arr: [15] }]);
+  assert.ok(u3.includes('&waypoints=') && decodeURIComponent(u3).includes('rue de Vaugirard, Paris 15e'));
+  assert.equal(routeUrl([m('p001')], []), '');
+  console.log('1段目・ルートテストOK');
 }
