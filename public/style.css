@@ -298,7 +298,7 @@ a { color: inherit; }
 .foldbtn:hover { background: #fff; color: var(--ink); }
 .foldbtn[aria-expanded="false"] svg { transform: rotate(180deg); }
 .top__inner { padding-bottom: 12px; }
-.top__fold .days { padding-top: 0; }
+.top .days { padding-top: 0; }
 .menubtn { margin-left: 0; }
 @media (max-width: 640px) { .top__inner { flex-wrap: wrap; row-gap: 8px; } .top__inner > .view { order: 5; flex: 1 0 100%; margin-left: 0; } .foldbtn { margin-left: auto; } }
 .top__sub { margin-right: 0; }
