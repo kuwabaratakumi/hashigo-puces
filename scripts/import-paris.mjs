@@ -1,7 +1,7 @@
 // パリ市の一覧ページ → data/events.csv（単発のブロカント・ヴィド・グルニエ）
 //   node scripts/import-paris.mjs            … ページを取得して events.csv を作り直す
 //   node scripts/import-paris.mjs file.html  … 保存した HTML から作る
-// 月に1回、手で実行する（自動では動かさない）。くわしくは docs/terms.md
+// 毎月1日に GitHub Actions（import-monthly.yml）で自動実行。手でも実行できる。くわしくは docs/terms.md
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
