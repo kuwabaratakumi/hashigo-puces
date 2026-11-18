@@ -1,5 +1,5 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=6745ade8';
-import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=6745ade8';
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=c7a99cca';
+import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=c7a99cca';
 // パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
@@ -15,6 +15,8 @@ const state = {
   mapOpen: store.get('hashigo-puces:map', true),
   frPanel: false,
   menu: false,
+  stayOpen: store.get('hashigo-puces:stayOpen', true),
+  periods: store.get('hashigo-puces:periods', []),
   pick: '', // 期間を選ぶ：先に押した始まりの日
   stay: store.get('hashigo-puces:stay', { from: '', to: '' }),
   date: '',
@@ -49,7 +51,7 @@ function render() {
   $('#menu').hidden = !state.menu; $('#menubtn').setAttribute('aria-expanded', String(state.menu));
   const body = state.view === 'hashigo' ? viewHashigo(data, state)
     : state.view === 'day' ? viewDay(data, state)
-    : state.view === 'saved' ? viewSaved(all, today)
+    : state.view === 'saved' ? viewSaved(all, today, state.periods)
     : viewAll(data, today, state);
   // ★ メモの画面はエリアでしぼらないので、地図は出さない。地図はパリだけ
   $('#main').innerHTML = (state.view === 'saved' ? '' : paris ? zoneMap(data, state.zone, state.mapOpen, state.date) : '') + body;
@@ -85,6 +87,14 @@ function act(t) {
     if (t.dataset.menu === 'memo') $('#tripNote')?.focus({ preventScroll: true });
     return;
   }
+  else if ('periodSave' in t.dataset) {
+    const { from, to } = state.stay;
+    if (from && to && !state.periods.some((p) => p.from === from && p.to === to)) { state.periods = [...state.periods, { from, to }].sort((a, b) => a.from.localeCompare(b.from)); store.set('hashigo-puces:periods', state.periods); }
+  } else if (t.dataset.period) {
+    const [from, to] = t.dataset.period.split('|'); state.stay = { from, to }; state.view = 'hashigo'; state.pick = ''; store.set('hashigo-puces:stay', state.stay);
+  } else if (t.dataset.periodDel) {
+    state.periods = state.periods.filter((p) => `${p.from}|${p.to}` !== t.dataset.periodDel); store.set('hashigo-puces:periods', state.periods);
+  }
   else if ('stayClear' in t.dataset) { state.stay = { from: '', to: '' }; store.set('hashigo-puces:stay', state.stay); }
   else if ('stayAll' in t.dataset) { state.stay = { from: PERIOD.start, to: PERIOD.end }; store.set('hashigo-puces:stay', state.stay); }
   else if (t.dataset.date) {
@@ -104,7 +114,7 @@ function act(t) {
 }
 
 function bind() {
-  const SEL = '[data-fav],[data-forget],[data-view],[data-menu],[data-date],[data-region],[data-zone],[data-stay-clear],[data-stay-all],[data-frclose]';
+  const SEL = '[data-fav],[data-forget],[data-view],[data-menu],[data-period-save],[data-period],[data-period-del],[data-date],[data-region],[data-zone],[data-stay-clear],[data-stay-all],[data-frclose]';
   document.addEventListener('click', (e) => {
     if (e.target.closest('#menubtn')) { state.menu = !state.menu; state.frPanel = false; return render(); }
     if (state.menu && !e.target.closest('#menu')) { state.menu = false; render(); }
@@ -181,6 +191,7 @@ function bind() {
   // 地図を開いているかどうかを覚える（toggle は親に伝わらないので capture で受ける）
   document.addEventListener('toggle', (e) => {
     if (e.target.id === 'mapbox') { state.mapOpen = e.target.open; store.set('hashigo-puces:map', state.mapOpen); }
+    if (e.target.id === 'staybox') { state.stayOpen = e.target.open; store.set('hashigo-puces:stayOpen', state.stayOpen); }
   }, true);
 }
 

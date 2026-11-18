@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=6745ade8';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=6745ade8';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=6745ade8';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=c7a99cca';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=c7a99cca';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=c7a99cca';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -157,18 +157,41 @@ export function viewDay(data, { date, zone }) {
   const es = eventsOn(data.events, date).filter((e) => inZone(zone, e.zone));
   const head = `<div class="summary"><p><b class="num">${mdw(date)}</b> 　常設 <b class="num">${ms.length}</b> ・ 単発 <b class="num">${es.length}</b></p></div>`;
   if (!ms.length && !es.length) return head + stale(data, date) + '<p class="empty">この日に開く蚤の市は見つかっていません。週末（土・日・月）に多く開かれます</p>';
-  const sets = combosOn(data, date, zone, data.region).filter(({ markets, events }) => markets.length + events.length >= 2);
-  const hashigo = sets.length ? `<section class="hashigo-mini"><h2 class="section__title">この日のはしご<span class="month__n">近くでまとめて回れる組み合わせ</span></h2><ul>${sets.map(({ group, markets, events }) => {
-    const route = routeUrl(markets, events, group.mode);
-    const names = [...markets.map((x) => esc(x.market.name)), ...events.map((e) => esc(e.place))].join(' → ');
-    return `<li><b>${esc(group.title)}</b><span>${names}</span>${route ? `<a class="btn btn--ghost" href="${esc(route)}" target="_blank" rel="noopener">ルート（${group.mode === 'driving' ? '車' : '徒歩'}）</a>` : ''}</li>`;
-  }).join('')}</ul></section>` : '';
+  const hashigo = hashigoCourses(data, date, zone, 'この日のはしご');
   return head + stale(data, date) + hashigo
     + (ms.length ? `<h2 class="section__title">常設<span class="month__n">早く開く順</span></h2>${grid(ms.map((x) => marketCard(x.market, x.hours)))}` : '')
     + (es.length ? `<h2 class="section__title">単発<span class="month__n">この日だけ、または数日だけ</span></h2>${grid(es.map((e) => eventCard(e, data.eventsMeta.source)))}` : '');
 }
 
 /* ---------- はしご ---------- */
+/** 停留所の名前（ルートの検索に使う）と、画面に出す名前 */
+const stopsOf = (markets, events) => [
+  ...markets.map((x) => ({ q: x.market.address.replace(/\s*\/\s*/g, ' & '), name: x.market.name })),
+  ...events.map((e) => ({ q: `${e.place}, Paris ${e.arr[0]}e`, name: e.place })),
+];
+/** 電車・バス（メトロ・RER・バス）のルート。Googleマップは経由地つきの公共交通に対応していないので、区間ごとに出す */
+function transitLegs(markets, events) {
+  const st = stopsOf(markets, events);
+  const q = (t) => encodeURIComponent(t);
+  return st.slice(1).map((b, i) => ({ from: st[i].name, to: b.name, url: `https://www.google.com/maps/dir/?api=1&origin=${q(st[i].q)}&destination=${q(b.q)}&travelmode=transit` }));
+}
+/** その日のおすすめのはしごコース（2か所以上）。徒歩の通しルートと、区間ごとの電車・バスのルート */
+export function hashigoCourses(data, date, zone, title, collapsed = false) {
+  const sets = combosOn(data, date, zone, data.region).filter(({ markets, events }) => markets.length + events.length >= 2);
+  if (!sets.length) return '';
+  const items = sets.map(({ group, markets, events }) => {
+    const walk = routeUrl(markets, events, group.mode);
+    const names = [...markets.map((x) => esc(x.market.name)), ...events.map((e) => esc(e.place))].join(' → ');
+    const legs = group.mode === 'driving' ? [] : transitLegs(markets, events);
+    return `<li><b>${esc(group.title)}</b><span>${names}</span>
+      <div class="course__links">${walk ? `<a class="btn btn--ghost" href="${esc(walk)}" target="_blank" rel="noopener">${group.mode === 'driving' ? '車' : '徒歩'}のルート</a>` : ''}${legs.map((l, i) => `<a class="btn btn--ghost" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(l.from)} → ${esc(l.to)}">電車・バス${legs.length > 1 ? `（${i + 1}→${i + 2}）` : ''}</a>`).join('')}</div></li>`;
+  }).join('');
+  const list = `<ul>${items}</ul>`;
+  return collapsed
+    ? `<details class="hashigo-mini hashigo-mini--fold"><summary>${esc(title)}<span class="month__n">${sets.length}コース</span></summary>${list}</details>`
+    : `<section class="hashigo-mini"><h2 class="section__title">${esc(title)}<span class="month__n">近くでまとめて回れる組み合わせ</span></h2>${list}</section>`;
+}
+
 /** Googleマップのルート（徒歩）。常設は住所、単発は場所の名前と区で、まわる順に並べる */
 export function routeUrl(markets, events, mode = 'walking') {
   const stops = [
@@ -207,28 +230,35 @@ function combosOn(data, date, zone, region = 'パリ') {
     return zone === 'すべて' || [...markets.map((x) => x.market.zone), ...events.map((e) => e.zone)].includes(zone);
   });
 }
-/** 滞在期間（始点〜終点）をえらぶ欄 */
-function stayForm(stay) {
-  return `<div class="stay">
-    <p class="stay__title">フランスにいる期間をえらぶ</p>
-    <div class="stay__row">
-      <label>着く日<input type="date" id="stayFrom" min="${PERIOD.start}" max="${PERIOD.end}" value="${esc(stay.from || '')}"></label>
-      <span aria-hidden="true">〜</span>
-      <label>帰る日<input type="date" id="stayTo" min="${PERIOD.start}" max="${PERIOD.end}" value="${esc(stay.to || '')}"></label>
+/** 滞在期間（始点〜終点）をえらぶ欄。クリックでしまえる。保存した期間からもえらべる */
+function stayForm(stay, open, periods = []) {
+  const on = stay.from && stay.to;
+  const same = (p) => p.from === stay.from && p.to === stay.to;
+  const chips = periods.map((p) => `<span class="pchip${same(p) ? ' is-on' : ''}"><button type="button" class="pchip__go" data-period="${esc(p.from)}|${esc(p.to)}">${md(p.from)}〜${md(p.to)}</button><button type="button" class="pchip__del" data-period-del="${esc(p.from)}|${esc(p.to)}" aria-label="${md(p.from)}〜${md(p.to)} を消す">×</button></span>`).join('');
+  return `<details class="stay" id="staybox" ${open ? 'open' : ''}>
+    <summary><span class="stay__ttl">フランスにいる期間</span><span class="mapbox__now">${on ? `${md(stay.from)}〜${md(stay.to)}` : '未選択'}</span></summary>
+    <div class="stay__body">
+      <div class="stay__row">
+        <input type="date" id="stayFrom" aria-label="着く日" min="${PERIOD.start}" max="${PERIOD.end}" value="${esc(stay.from || '')}">
+        <span aria-hidden="true">〜</span>
+        <input type="date" id="stayTo" aria-label="帰る日" min="${PERIOD.start}" max="${PERIOD.end}" value="${esc(stay.to || '')}">
+        ${on && !periods.some(same) ? '<button type="button" class="btn btn--ghost btn--sm" data-period-save>この期間を保存</button>' : ''}
+      </div>
+      ${chips ? `<div class="stay__saved"><span class="stay__label">保存した期間</span>${chips}</div>` : ''}
+      <p class="stay__hint">上の日付で、始まりと終わりの日をドラッグすると期間を選べます。</p>
     </div>
-    <p class="stay__hint">上の日付で、始まりと終わりの日をドラッグすると期間を選べます。</p>
-  </div>`;
+  </details>`;
 }
 /** 期間を選ぶ：期間中に開く市を、日付ごとにすべて並べる（はしごのルートは「日を選ぶ」で出す） */
-export function viewHashigo(data, { zone, stay }) {
-  const form = stayForm(stay);
+export function viewHashigo(data, { zone, stay, stayOpen = true, periods = [] }) {
+  const form = stayForm(stay, stayOpen, periods);
   if (!(stay.from && stay.to)) return form + '<p class="empty">期間をえらぶと、そのあいだに開く市を日付ごとに並べます</p>';
   const days = [];
   for (let d = stay.from; d <= stay.to; d = addDays(d, 1)) days.push(d);
   const rows = days.map((d) => ({ d, ms: marketsOn(data.markets, d).filter((x) => inZone(zone, x.market.zone)), es: eventsOn(data.events, d).filter((e) => inZone(zone, e.zone)) }));
   const open = rows.filter((r) => r.ms.length + r.es.length);
-  const html = rows.map((r) => `<section class="stayday"><h2 class="stayday__title">${mdw(r.d)}<span class="month__n">${r.ms.length + r.es.length ? `常設 ${r.ms.length} ・ 単発 ${r.es.length}` : '開く市なし'}</span></h2>${r.ms.length + r.es.length ? grid([...r.ms.map((x) => marketCard(x.market, x.hours)), ...r.es.map((e) => eventCard(e, data.eventsMeta.source))]) : ''}</section>`).join('');
-  return form + `<div class="summary"><p><b class="num">${mdw(stay.from)}</b> 〜 <b class="num">${mdw(stay.to)}</b>（${days.length}日間）　市が開く日 <b class="num">${open.length}</b>日</p><p class="summary__hint">おすすめのはしごルートは「日を選ぶ」で見られます</p></div>` + stale(data, stay.to) + html;
+  const html = rows.map((r) => `<section class="stayday"><h2 class="stayday__title">${mdw(r.d)}<span class="month__n">${r.ms.length + r.es.length ? `常設 ${r.ms.length} ・ 単発 ${r.es.length}` : '開く市なし'}</span></h2>${hashigoCourses(data, r.d, zone, 'おすすめのはしごコース', true)}${r.ms.length + r.es.length ? grid([...r.ms.map((x) => marketCard(x.market, x.hours)), ...r.es.map((e) => eventCard(e, data.eventsMeta.source))]) : ''}</section>`).join('');
+  return form + `<div class="summary"><p><b class="num">${mdw(stay.from)}</b> 〜 <b class="num">${mdw(stay.to)}</b>（${days.length}日間）　市が開く日 <b class="num">${open.length}</b>日</p><p class="summary__hint">はしごできる日は、日付の下の「おすすめのはしごコース」を開くとルートが見られます</p></div>` + stale(data, stay.to) + html;
 }
 
 /* ---------- 全日程（単発と常設をまとめて） ---------- */
@@ -332,7 +362,7 @@ export function zoneMap(data, zone, open, date) {
 }
 
 /* ---------- ★ メモ（お気に入りとメモのまとめ） ---------- */
-export function viewSaved(data, today) {
+export function viewSaved(data, today, periods = []) {
   const byKey = new Map([...data.markets.map((m) => [m.id, { market: m }]), ...data.events.map((e) => [eventKey(e), { event: e }])]);
   const keys = [...new Set([...Object.keys(SAVED.fav), ...Object.keys(SAVED.memo)])];
   const render = (k) => { const x = byKey.get(k); return x.market ? marketCard(x.market, null) : eventCard(x.event, data.eventsMeta.source); };
@@ -351,8 +381,9 @@ export function viewSaved(data, today) {
     const text = SAVED.memo[k]?.text;
     return `<li><b>${esc(label)}</b>${text ? `<p>${esc(text)}</p>` : ''}<button type="button" class="btn btn--ghost" data-forget="${esc(k)}">消す</button></li>`;
   }).join('')}</ul>` : '';
-  const empty = !keys.length ? '<p class="empty">まだ何も入っていません。カードの ☆ でお気に入りに、「メモを書く」でメモを付けられます</p>' : '';
-  return `<p class="lead">お気に入りとメモは、このブラウザの中だけに保存されます。</p>` + note
+  const empty = !keys.length && !periods.length ? '<p class="empty">まだ何も入っていません。カードの ☆ でお気に入りに、「メモを書く」でメモを付けられます</p>' : '';
+  const per = periods.length ? `<h2 class="section__title">保存した期間<span class="month__n">押すと「期間を選ぶ」で開きます</span></h2><div class="stay__saved">${periods.map((p) => `<span class="pchip"><button type="button" class="pchip__go" data-period="${esc(p.from)}|${esc(p.to)}">${mdw(p.from)}〜${mdw(p.to)}</button><button type="button" class="pchip__del" data-period-del="${esc(p.from)}|${esc(p.to)}" aria-label="消す">×</button></span>`).join('')}</div>` : '';
+  return `<p class="lead">お気に入りとメモは、このブラウザの中だけに保存されます。</p>` + per + note
     + (favs.length ? `<h2 class="section__title" id="sec-fav">お気に入り<span class="month__n">${favs.length}件</span></h2>${grid(favs.map(render))}` : '')
     + (memos.length ? `<h2 class="section__title">メモを付けた市<span class="month__n">${memos.length}件</span></h2>${grid(memos.map(render))}` : '')
     + goneHtml + empty;
