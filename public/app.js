@@ -1,6 +1,6 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=b95218ba';
-import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=b95218ba';
-// パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=da773167';
+import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=da773167';
+// ぷらり！フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
@@ -14,6 +14,7 @@ const state = {
   zone: store.get('hashigo-puces:zone', 'すべて'),
   mapOpen: store.get('hashigo-puces:map', true),
   frPanel: false,
+  fold: store.get('hashigo-puces:fold', false),
   menu: false,
   stayOpen: store.get('hashigo-puces:stayOpen', true),
   periods: store.get('hashigo-puces:periods', []),
@@ -49,6 +50,7 @@ function render() {
   $('#days').innerHTML = dayStrip(data, today, state.date, state.zone, state.stay, state.view, state.pick);
   $('#parisrow').innerHTML = parisRow(all, state.region, state.zone);
   const fp = $('#frpanel'); fp.innerHTML = franceMap(all, state.region); fp.hidden = !state.frPanel;
+  $('#fold').hidden = state.fold; $('#foldbtn').setAttribute('aria-expanded', String(!state.fold)); $('#foldbtn').setAttribute('aria-label', state.fold ? '日付とエリアをひらく' : '日付とエリアをたたむ');
   $('#menu').hidden = !state.menu; $('#menubtn').setAttribute('aria-expanded', String(state.menu));
   const body = state.view === 'hashigo' ? viewHashigo(data, state)
     : state.view === 'day' ? viewDay(data, state)
@@ -127,6 +129,7 @@ function act(t) {
 function bind() {
   const SEL = '[data-fav],[data-fav-reset],[data-forget],[data-view],[data-menu],[data-period-save],[data-period],[data-period-del],[data-date],[data-region],[data-zone],[data-stay-clear],[data-stay-all],[data-frclose]';
   document.addEventListener('click', (e) => {
+    if (e.target.closest('#foldbtn')) { state.fold = !state.fold; state.frPanel = false; store.set('hashigo-puces:fold', state.fold); return render(); }
     if (e.target.closest('#menubtn')) { state.menu = !state.menu; state.frPanel = false; return render(); }
     if (state.menu && !e.target.closest('#menu')) { state.menu = false; render(); }
     if (state.frPanel && !e.target.closest('#frpanel, .areawrap, #menu')) { state.frPanel = false; render(); }
