@@ -1,5 +1,5 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=c7e39b68';
-import { dayStrip, parisRow, regionChips, regionNote, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=c7e39b68';
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=c3d825f1';
+import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=c3d825f1';
 // パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
@@ -15,6 +15,7 @@ const state = {
   mapOpen: store.get('hashigo-puces:map', true),
   frPanel: false,
   menu: false,
+  pick: '', // 期間を選ぶ：先に押した始まりの日
   stay: store.get('hashigo-puces:stay', { from: '', to: '' }),
   date: '',
 };
@@ -42,7 +43,7 @@ function render() {
   if (!state.date || state.date < PERIOD.start || state.date > PERIOD.end) state.date = clampToPeriod(today);
   document.querySelectorAll('.view button').forEach((b) => { b.setAttribute('aria-pressed', String(b.dataset.view === state.view)) });
   $('#regions').innerHTML = regionChips(all, state.region);
-  $('#days').innerHTML = dayStrip(data, today, state.date, state.zone, state.stay, state.view);
+  $('#days').innerHTML = dayStrip(data, today, state.date, state.zone, state.stay, state.view, state.pick);
   $('#parisrow').innerHTML = parisRow(all, state.region, state.zone);
   const fp = $('#frpanel'); fp.innerHTML = franceMap(all, state.region); fp.hidden = !state.frPanel;
   $('#menu').hidden = !state.menu; $('#menubtn').setAttribute('aria-expanded', String(state.menu));
@@ -51,7 +52,7 @@ function render() {
     : state.view === 'saved' ? viewSaved(all, today)
     : viewAll(data, today, state);
   // ★ メモの画面はエリアでしぼらないので、地図は出さない。地図はパリだけ
-  $('#main').innerHTML = (state.view === 'saved' ? '' : paris ? zoneMap(data, state.zone, state.mapOpen, state.date) : regionNote(state.region, state.view)) + body;
+  $('#main').innerHTML = (state.view === 'saved' ? '' : paris ? zoneMap(data, state.zone, state.mapOpen, state.date) : '') + body;
 }
 
 function toggleFav(btn) {
@@ -74,7 +75,7 @@ function act(t) {
   if (t.dataset.forget) {
     delete saved.fav[t.dataset.forget]; delete saved.memo[t.dataset.forget];
     store.set('hashigo-puces:fav', saved.fav); store.set('hashigo-puces:memo', saved.memo);
-  } else if (t.dataset.view) { state.view = t.dataset.view; }
+  } else if (t.dataset.view) { state.view = t.dataset.view; state.pick = ''; }
   else if (t.dataset.menu) {
     state.menu = false;
     if (t.dataset.menu === 'map') { state.frPanel = true; render(); return; }
@@ -86,13 +87,20 @@ function act(t) {
   }
   else if ('stayClear' in t.dataset) { state.stay = { from: '', to: '' }; store.set('hashigo-puces:stay', state.stay); }
   else if ('stayAll' in t.dataset) { state.stay = { from: PERIOD.start, to: PERIOD.end }; store.set('hashigo-puces:stay', state.stay); }
-  else if (t.dataset.date) { state.date = t.dataset.date; state.view = 'day'; }
+  else if (t.dataset.date) {
+    if (state.view === 'hashigo') {
+      // 期間を選ぶ：1回目で始まり、2回目で終わり
+      if (!state.pick) { state.pick = t.dataset.date; render(); return; }
+      const [a, b] = [state.pick, t.dataset.date].sort();
+      state.stay = { from: a, to: b }; state.pick = ''; store.set('hashigo-puces:stay', state.stay);
+    } else { state.date = t.dataset.date; state.view = 'day'; }
+  }
   else if (t.dataset.region) { state.region = t.dataset.region; store.set('hashigo-puces:region', state.region); }
   else if ('frclose' in t.dataset) state.frPanel = false;
   else if (t.dataset.zone) { state.zone = state.zone === t.dataset.zone ? 'すべて' : t.dataset.zone; store.set('hashigo-puces:zone', state.zone); }
   else return;
   render();
-  if (t.dataset.date) $('#main').scrollIntoView({ block: 'start' });
+  if (t.dataset.date && state.view !== 'hashigo') $('#main').scrollIntoView({ block: 'start' });
 }
 
 function bind() {
@@ -124,7 +132,7 @@ function bind() {
     if (!moved || from === to) return;
     suppress = true; setTimeout(() => { suppress = false; }, 0);
     const [a, b] = [from, to].sort();
-    state.stay = { from: a, to: b }; state.view = 'hashigo';
+    state.stay = { from: a, to: b }; state.view = 'hashigo'; state.pick = '';
     store.set('hashigo-puces:stay', state.stay);
     render(); $('#main').scrollIntoView({ block: 'start' });
   };

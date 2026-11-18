@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=c7e39b68';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=c7e39b68';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=c7e39b68';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=c3d825f1';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=c3d825f1';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=c3d825f1';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -111,14 +111,14 @@ const grid = (html) => `<div class="grid">${html.join('')}</div>`;
 
 /* ---------- 上の帯 ---------- */
 /** 見られる期間（1〜2月）の日付ボタン。月ごとに1段ずつ並べて、全部の日が見えるようにする */
-export function dayStrip(data, today, selected, zone, stay, view) {
+export function dayStrip(data, today, selected, zone, stay, view, pick) {
   const inStay = (iso) => view === 'hashigo' && stay && stay.from && stay.to && iso >= stay.from && iso <= stay.to;
   const months = new Map();
   for (const iso of periodDays()) { const ym = iso.slice(0, 7); if (!months.has(ym)) months.set(ym, []); months.get(ym).push(iso); }
   return [...months].map(([ym, days]) => `<div class="days__row"><span class="days__m">${Number(ym.slice(5))}月</span>${days.map((iso) => {
     const w = weekday(iso);
     const n = marketsOn(data.markets, iso).filter((x) => inZone(zone, x.market.zone)).length + eventsOn(data.events, iso).filter((e) => inZone(zone, e.zone)).length;
-    return `<button class="day" type="button" data-date="${iso}" ${view === 'day' && iso === selected ? 'aria-current="date"' : ''} ${n ? '' : 'data-empty'} ${iso === today ? 'data-today' : ''} ${inStay(iso) ? 'data-stay' : ''} ${w === 0 ? 'data-sun' : w === 6 ? 'data-sat' : ''} aria-label="${mdw(iso)} ${n}件"><span class="day__d">${Number(iso.slice(8))}</span><span class="day__w">${DOW[w]}</span></button>`;
+    return `<button class="day" type="button" data-date="${iso}" ${view === 'day' && iso === selected ? 'aria-current="date"' : ''} ${n ? '' : 'data-empty'} ${iso === today ? 'data-today' : ''} ${inStay(iso) ? 'data-stay' : ''} ${view === 'hashigo' && iso === pick ? 'data-pick' : ''} ${w === 0 ? 'data-sun' : w === 6 ? 'data-sat' : ''} aria-label="${mdw(iso)} ${n}件"><span class="day__d">${Number(iso.slice(8))}</span><span class="day__w">${DOW[w]}</span></button>`;
   }).join('')}</div>`).join('');
 }
 
@@ -209,7 +209,7 @@ function combosOn(data, date, zone, region = 'パリ') {
   });
 }
 /** 滞在期間（始点〜終点）をえらぶ欄 */
-function stayForm(stay) {
+function stayForm(stay, pick) {
   const on = stay.from && stay.to;
   return `<div class="stay">
     <p class="stay__title">フランスにいる期間をえらぶ</p>
@@ -220,11 +220,12 @@ function stayForm(stay) {
       <button type="button" class="btn btn--ghost" data-stay-all>全期間</button>
       ${on ? '<button type="button" class="btn btn--ghost" data-stay-clear>1日ずつ見る</button>' : ''}
     </div>
-    <p class="stay__hint">${on ? '期間中の、2か所以上まわれる日をまとめて出しています。' : '2つの日付をえらぶと、期間中のはしごを日ごとに出します。上の日付の帯をドラッグしても期間をえらべます。帯の日を1つ押すと、その1日だけを見られます。'}</p>
+    ${pick ? `<p class="stay__pick">始まりの日：${mdw(pick)}。上の日付で、終わりの日を押してください</p>` : ''}
+    <p class="stay__hint">${on ? '期間中の、2か所以上まわれる日をまとめて出しています。' : ''}上の日付で、始まりの日と終わりの日を順に押すと期間をえらべます。</p>
   </div>`;
 }
-export function viewHashigo(data, { date, zone, stay, region = 'パリ' }) {
-  const form = stayForm(stay);
+export function viewHashigo(data, { date, zone, stay, pick, region = 'パリ' }) {
+  const form = stayForm(stay, pick);
   if (stay.from && stay.to) {
     const days = [];
     for (let d = stay.from; d <= stay.to; d = addDays(d, 1)) days.push(d);
@@ -270,11 +271,20 @@ export function viewMarkets(data, { zone }) {
   return `<p class="lead">毎週決まった曜日に開く蚤の市です（月に1〜2回だけのものは、開催日を書いています）。祝日や夏休みは、時間が変わることがあります。</p>` + grid(list.map((m) => marketCard(m, null)));
 }
 
-/* ---------- フランス全体の地図（ヘッダーの地図アイコンで開く） ---------- */
+/* ---------- フランス全体の地図（右上のメニューから開く） ---------- */
+/** えらんでいる地方の、かんたんな説明（載せている市にあわせて書く） */
+const FR_DESC = {
+  'パリ': 'サン＝トゥアン、ヴァンヴ、モントルイユなどの大きな蚤の市が、毎週末に開きます。区ごとに開く単発の市も載せています。',
+  'リヨン': '東隣ヴィルールバンヌの大きな蚤の市「ピュス・デュ・カナル」と、ソーヌ川沿いの古本市。毎月最終土曜のアヌシー旧市街のブロカントも入れています。',
+  '南仏': '骨董の町リル＝シュル＝ラ＝ソルグの日曜ブロカントのほか、マルセイユ、ニース、モンペリエ、アヴィニョン、アルル、ニーム、エクスの市を載せています。',
+  'ボルドー': 'サン＝ミシェル地区の日曜ブロカントと古道具市、ヴィクトワール広場の古本市があります。',
+  'トゥールーズ': '月1回の大型ブロカント・デ・アレと、サン＝トーバン教会まわりの市。北東のアルビのブロカントも入れています。',
+  'ストラスブール': '旧市街のエタル広場まわりで開く、骨董・ブロカントの市があります。',
+};
 export function franceMap(data, region) {
   const count = (r) => data.markets.filter((m) => m.region === r).length;
   const pin = (r, c) => `<g class="fr__pin" data-region="${esc(r)}" role="button" tabindex="0" aria-pressed="${r === region}" aria-label="${esc(r)}（${count(r)}件）">
-      <title>${esc(r)}（${count(r)}件）</title><circle class="fr__dot" cx="${c.x}" cy="${c.y}" r="11"/>${(FR_EXTRA[r] || []).map((t) => `<circle class="fr__town" cx="${t.x}" cy="${t.y}" r="4"/><text class="fr__town-name" x="${t.x}" y="${t.y + 24}">${t.n}</text>`).join('')}<text class="fr__label" x="${Math.min(c.x, FR_W - 105)}" y="${c.y - 17}">${esc(r)}</text></g>`;
+      <title>${esc(r)}（${count(r)}件）</title><circle class="fr__dot" cx="${c.x}" cy="${c.y}" r="${r === region ? 19 : 15}"/>${(FR_EXTRA[r] || []).map((t) => `<circle class="fr__town" cx="${t.x}" cy="${t.y}" r="4"/><text class="fr__town-name" x="${t.x}" y="${t.y + 24}">${t.n}</text>`).join('')}<text class="fr__label" x="${Math.min(c.x, FR_W - 105)}" y="${c.y - 17}">${esc(r)}</text></g>`;
   const sud = `<g class="fr__pin" data-region="南仏" role="button" tabindex="0" aria-pressed="${region === '南仏'}" aria-label="南仏（${count('南仏')}件）">
       <title>南仏（${count('南仏')}件）</title><ellipse class="fr__zone" cx="515" cy="522" rx="98" ry="30"/>
       ${FR_SUD.map((c) => `<circle class="fr__town" cx="${c.x}" cy="${c.y}" r="4"/>`).join('')}
@@ -285,7 +295,8 @@ export function franceMap(data, region) {
       <path class="fr__land" d="${FR_OUTLINE}"/>
       ${pin('パリ', FR_CITIES['パリ'])}${pin('リヨン', FR_CITIES['リヨン'])}${pin('ボルドー', FR_CITIES['ボルドー'])}${pin('トゥールーズ', FR_CITIES['トゥールーズ'])}${pin('ストラスブール', FR_CITIES['ストラスブール'])}${sud}
     </svg>
-    <p class="map__note">丸や楕円を押すと、その地方の市に切りかわります。南仏には、マルセイユ・ニース・モンペリエ・アルル・ニーム・アヴィニョン・リル＝シュル＝ラ＝ソルグ・エクスを入れています。リヨンにはアヌシー、トゥールーズにはアルビも入れています。コルシカ島は載せていません。</p>`;
+    <p class="fr__desc"><b>${esc(region)}</b>　${esc(FR_DESC[region] || '')}</p>
+    <p class="map__note">丸や楕円を押すと、その地方の市に切りかわります。</p>`;
 }
 
 /** 地図に立てるピン：その日に開く常設と単発。常設は番地に近い緯度経度、単発は区の中心 */
