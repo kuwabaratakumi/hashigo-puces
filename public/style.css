@@ -389,3 +389,15 @@ a { color: inherit; }
 }
 @media (min-width: 641px) { .foldbar { display: none; } }
 @media (max-width: 900px) { .top__inner .menubtn { margin-left: auto; } }
+
+/* 2回目の調整：エリア選択はタイトル行のハンバーガーの左（スマホ）。表示ボタンは隠さない。日付の下を詰める */
+.tools[hidden] { display: flex; }
+.areawrap[hidden] { display: none; }
+@media (max-width: 640px) {
+  .foldbar { width: auto; margin: 0 0 0 auto; padding: 6px 12px; font-size: 14px; flex: none; }
+  .top__inner .menubtn { margin-left: 0; }
+  .top__inner .top__sub + .foldbar { margin-left: auto; }
+  .top .days { padding-bottom: 2px; }
+  .tools { padding-bottom: 8px; gap: 6px; }
+}
+@media (min-width: 641px) { .areawrap[hidden] { display: flex; } .top .days { padding-bottom: 6px; } }

@@ -1,6 +1,6 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=ac32dc93';
-import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=ac32dc93';
-// ぷらり！フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=6dff9965';
+import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=6dff9965';
+// ぷらり！蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
