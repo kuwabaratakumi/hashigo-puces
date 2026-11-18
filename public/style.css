@@ -401,3 +401,11 @@ a { color: inherit; }
   .tools { padding-bottom: 8px; gap: 6px; }
 }
 @media (min-width: 641px) { .areawrap[hidden] { display: flex; } .top .days { padding-bottom: 6px; } }
+
+/* 3回目の詰め：ボタンの上下の余白、ボタンの上の空き、タイトルと日付のすきま */
+.view button { padding-block: 3px; }
+.top__inner { padding-top: 8px; padding-bottom: 0; }
+.top .days { padding-top: 0; padding-bottom: 0; }
+.top .day { padding-block: 2px; }
+.tools { padding-top: 0; padding-bottom: 8px; }
+@media (max-width: 640px) { .tools { gap: 4px; padding-bottom: 6px; } .top .days { padding-bottom: 0; } }

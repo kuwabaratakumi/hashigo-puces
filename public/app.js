@@ -1,5 +1,5 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=6dff9965';
-import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=6dff9965';
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=102b864a';
+import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=102b864a';
 // ぷらり！蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
