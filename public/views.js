@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=c47e4061';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=c47e4061';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=c47e4061';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=ac32dc93';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=ac32dc93';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=ac32dc93';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -256,9 +256,8 @@ export function viewHashigo(data, { zone, stay, stayOpen = true, periods = [] })
   const days = [];
   for (let d = stay.from; d <= stay.to; d = addDays(d, 1)) days.push(d);
   const rows = days.map((d) => ({ d, ms: marketsOn(data.markets, d).filter((x) => inZone(zone, x.market.zone)), es: eventsOn(data.events, d).filter((e) => inZone(zone, e.zone)) }));
-  const open = rows.filter((r) => r.ms.length + r.es.length);
   const html = rows.map((r) => `<section class="stayday"><h2 class="stayday__title">${mdw(r.d)}<span class="month__n">${r.ms.length + r.es.length ? `常設 ${r.ms.length} ・ 単発 ${r.es.length}` : '開く市なし'}</span></h2>${hashigoCourses(data, r.d, zone, 'おすすめのはしごコース', true)}${r.ms.length + r.es.length ? grid([...r.ms.map((x) => marketCard(x.market, x.hours)), ...r.es.map((e) => eventCard(e, data.eventsMeta.source))]) : ''}</section>`).join('');
-  return form + `<div class="summary"><p><b class="num">${mdw(stay.from)}</b> 〜 <b class="num">${mdw(stay.to)}</b>（${days.length}日間）　市が開く日 <b class="num">${open.length}</b>日</p><p class="summary__hint">はしごできる日は、日付の下の「おすすめのはしごコース」を開くとルートが見られます</p></div>` + stale(data, stay.to) + html;
+  return form + `<div class="summary"><p><b class="num">${mdw(stay.from)}</b> 〜 <b class="num">${mdw(stay.to)}</b>（${days.length}日間）</p></div>` + stale(data, stay.to) + html;
 }
 
 /* ---------- 全日程（単発と常設をまとめて） ---------- */
