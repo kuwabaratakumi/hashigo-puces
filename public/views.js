@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=a89422b0';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=a89422b0';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=a89422b0';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=c7e39b68';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=c7e39b68';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=c7e39b68';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -110,15 +110,16 @@ export function eventCard(e, sourceUrl) {
 const grid = (html) => `<div class="grid">${html.join('')}</div>`;
 
 /* ---------- 上の帯 ---------- */
-/** 見られる期間（1〜2月）の日付ボタン */
-export function dayStrip(data, today, selected, zone, stay) {
-  const inStay = (iso) => stay && stay.from && stay.to && iso >= stay.from && iso <= stay.to;
-  return periodDays().map((iso, i) => {
+/** 見られる期間（1〜2月）の日付ボタン。月ごとに1段ずつ並べて、全部の日が見えるようにする */
+export function dayStrip(data, today, selected, zone, stay, view) {
+  const inStay = (iso) => view === 'hashigo' && stay && stay.from && stay.to && iso >= stay.from && iso <= stay.to;
+  const months = new Map();
+  for (const iso of periodDays()) { const ym = iso.slice(0, 7); if (!months.has(ym)) months.set(ym, []); months.get(ym).push(iso); }
+  return [...months].map(([ym, days]) => `<div class="days__row"><span class="days__m">${Number(ym.slice(5))}月</span>${days.map((iso) => {
     const w = weekday(iso);
     const n = marketsOn(data.markets, iso).filter((x) => inZone(zone, x.market.zone)).length + eventsOn(data.events, iso).filter((e) => inZone(zone, e.zone)).length;
-    return `<button class="day" type="button" data-date="${iso}" ${iso === selected ? 'aria-current="date"' : ''} ${n ? '' : 'data-empty'} ${iso === today ? 'data-today' : ''} ${inStay(iso) ? 'data-stay' : ''} ${w === 0 || w === 6 ? 'data-weekend' : ''} aria-label="${mdw(iso)} ${n}件">
-      <span class="day__m">${i === 0 || iso.endsWith('-01') ? `${Number(iso.slice(5, 7))}月` : ''}</span><span class="day__d">${Number(iso.slice(8))}</span><span class="day__w">${DOW[w]}</span></button>`;
-  }).join('');
+    return `<button class="day" type="button" data-date="${iso}" ${view === 'day' && iso === selected ? 'aria-current="date"' : ''} ${n ? '' : 'data-empty'} ${iso === today ? 'data-today' : ''} ${inStay(iso) ? 'data-stay' : ''} ${w === 0 ? 'data-sun' : w === 6 ? 'data-sat' : ''} aria-label="${mdw(iso)} ${n}件"><span class="day__d">${Number(iso.slice(8))}</span><span class="day__w">${DOW[w]}</span></button>`;
+  }).join('')}</div>`).join('');
 }
 
 const regionChip = (data, r, region) => `<button type="button" class="chip chip--region" data-region="${esc(r)}" aria-pressed="${r === region}">${esc(r)}<span class="chip__n">${data.markets.filter((m) => m.region === r).length}</span></button>`;
@@ -157,7 +158,13 @@ export function viewDay(data, { date, zone }) {
   const es = eventsOn(data.events, date).filter((e) => inZone(zone, e.zone));
   const head = `<div class="summary"><p><b class="num">${mdw(date)}</b> 　常設 <b class="num">${ms.length}</b> ・ 単発 <b class="num">${es.length}</b></p></div>`;
   if (!ms.length && !es.length) return head + stale(data, date) + '<p class="empty">この日に開く蚤の市は見つかっていません。週末（土・日・月）に多く開かれます</p>';
-  return head + stale(data, date)
+  const sets = combosOn(data, date, zone, data.region).filter(({ markets, events }) => markets.length + events.length >= 2);
+  const hashigo = sets.length ? `<section class="hashigo-mini"><h2 class="section__title">この日のはしご<span class="month__n">近くでまとめて回れる組み合わせ</span></h2><ul>${sets.map(({ group, markets, events }) => {
+    const route = routeUrl(markets, events, group.mode);
+    const names = [...markets.map((x) => esc(x.market.name)), ...events.map((e) => esc(e.place))].join(' → ');
+    return `<li><b>${esc(group.title)}</b><span>${names}</span>${route ? `<a class="btn btn--ghost" href="${esc(route)}" target="_blank" rel="noopener">ルート（${group.mode === 'driving' ? '車' : '徒歩'}）</a>` : ''}</li>`;
+  }).join('')}</ul></section>` : '';
+  return head + stale(data, date) + hashigo
     + (ms.length ? `<h2 class="section__title">常設<span class="month__n">早く開く順</span></h2>${grid(ms.map((x) => marketCard(x.market, x.hours)))}` : '')
     + (es.length ? `<h2 class="section__title">単発<span class="month__n">この日だけ、または数日だけ</span></h2>${grid(es.map((e) => eventCard(e, data.eventsMeta.source)))}` : '');
 }
@@ -233,6 +240,16 @@ export function viewHashigo(data, { date, zone, stay, region = 'パリ' }) {
   const html = sets.map(({ group, markets, events }) => combo(data, group, markets, events, true)).join('');
   return form + `<p class="lead">${mdw(date)}${region === 'パリ' ? 'に、近くでまとめて回れる蚤の市です。単発の市は、同じ区や近くの区のものを並べています。' : `に、${esc(region)}で開く蚤の市です。`}</p>` + stale(data, date)
     + (html || '<p class="empty">この日は、近くで回れる組み合わせがありません。土曜か日曜をえらんでみてください</p>');
+}
+
+/* ---------- 全日程（単発と常設をまとめて） ---------- */
+export function viewAll(data, today, state) {
+  const paris = data.region === 'パリ';
+  const ev = paris ? viewEvents(data, today, state) : '';
+  const mk = viewMarkets(data, state);
+  return `<div class="summary"><p><b class="num">1/1</b> 〜 <b class="num">2/28</b> の全日程　${paris ? `単発 <b class="num">${inPeriod(data.events, today).filter((e) => inZone(state.zone, e.zone)).length}</b> ・ ` : ''}常設 <b class="num">${data.markets.filter((m) => inZone(state.zone, m.zone)).length}</b></p><p class="summary__hint">上の日付を押すとその日だけ、ドラッグすると期間でしぼれます</p></div>`
+    + (paris ? `<h2 class="section__title">単発<span class="month__n">決まった日だけ開く市</span></h2>${ev}` : '')
+    + `<h2 class="section__title">常設<span class="month__n">毎週・毎月開く市</span></h2>${mk}`;
 }
 
 /* ---------- 単発の予定 ---------- */
@@ -328,7 +345,7 @@ export function viewSaved(data, today) {
   const favs = known.filter((k) => SAVED.fav[k]);
   const memos = known.filter((k) => !SAVED.fav[k]);
   const gone = keys.filter((k) => !byKey.has(k));
-  const note = `<section class="note"><h2 class="section__title">旅のメモ<span class="month__n">どのカードにも付かない、自由なメモ</span></h2>
+  const note = `<section class="note" id="sec-memo"><h2 class="section__title">旅のメモ<span class="month__n">どのカードにも付かない、自由なメモ</span></h2>
     <textarea id="tripNote" rows="5" aria-label="旅のメモ" placeholder="持っていく物、予算、行きたい順番など">${esc(SAVED.note || '')}</textarea></section>`;
   const goneHtml = gone.length ? `<h2 class="section__title">一覧から消えた市<span class="month__n">終わった市など</span></h2><ul class="gone">${gone.map((k) => {
     const label = SAVED.fav[k]?.label || SAVED.memo[k]?.label || k;
@@ -337,7 +354,7 @@ export function viewSaved(data, today) {
   }).join('')}</ul>` : '';
   const empty = !keys.length ? '<p class="empty">まだ何も入っていません。カードの ☆ でお気に入りに、「メモを書く」でメモを付けられます</p>' : '';
   return `<p class="lead">お気に入りとメモは、このブラウザの中だけに保存されます。</p>` + note
-    + (favs.length ? `<h2 class="section__title">お気に入り<span class="month__n">${favs.length}件</span></h2>${grid(favs.map(render))}` : '')
+    + (favs.length ? `<h2 class="section__title" id="sec-fav">お気に入り<span class="month__n">${favs.length}件</span></h2>${grid(favs.map(render))}` : '')
     + (memos.length ? `<h2 class="section__title">メモを付けた市<span class="month__n">${memos.length}件</span></h2>${grid(memos.map(render))}` : '')
     + goneHtml + empty;
 }

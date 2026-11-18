@@ -11,31 +11,34 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=a89422b0">
+<link rel="stylesheet" href="style.css?v=c7e39b68">
 </head>
 <body>
 <header class="top">
   <div class="top__inner">
     <h1 class="brand"><svg class="brand__icon" viewBox="0 0 100 100" aria-hidden="true"><defs><mask id="brandMask"><rect width="100" height="100" fill="#fff"/><g fill="#000"><rect x="32" y="0" width="8" height="100"/><rect x="60" y="0" width="8" height="100"/><rect x="40" y="26" width="20" height="8"/><rect x="40" y="70" width="20" height="8"/></g></mask></defs><path d="M12 14 H88 L98 46 Q86 60 74 46 Q62 60 50 46 Q38 60 26 46 Q14 60 2 46 Z M14 60 H86 V94 H14 Z" fill="currentColor" mask="url(#brandMask)"/></svg>パルクリール！ フランス蚤の市</h1>
     <p class="top__sub">フランス蚤の市カレンダー：2027/1/1-2/28 ※時刻はフランス時間</p>
+    <button type="button" class="menubtn" id="menubtn" aria-expanded="false" aria-controls="menu" aria-label="メニュー">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <nav class="menu" id="menu" hidden aria-label="メニュー">
+      <button type="button" data-menu="fav"><span aria-hidden="true">★</span>お気に入り</button>
+      <button type="button" data-menu="memo"><span aria-hidden="true">✎</span>メモ</button>
+      <button type="button" data-menu="map"><span aria-hidden="true">⌖</span>フランスの地図</button>
+    </nav>
   </div>
+  <div class="frpanel" id="frpanel" hidden role="dialog" aria-label="フランスのどのあたり？"></div>
   <nav class="days" id="days" aria-label="日付をえらぶ"></nav>
   <div class="tools">
     <div class="view" role="radiogroup" aria-label="表示">
-      <button type="button" data-view="day" aria-pressed="true">この日</button>
-      <button type="button" data-view="hashigo" aria-pressed="false">はしご</button>
-      <button type="button" data-view="events" aria-pressed="false">単発</button>
-      <button type="button" data-view="markets" aria-pressed="false">常設</button>
-      <button type="button" data-view="saved" aria-pressed="false">★ メモ</button>
+      <button type="button" data-view="all" aria-pressed="true">全日程</button>
+      <button type="button" data-view="day" aria-pressed="false">日を選ぶ</button>
+      <button type="button" data-view="hashigo" aria-pressed="false">期間を選ぶ</button>
     </div>
     <div class="areawrap">
       <div class="areas" id="parisrow" role="group" aria-label="パリとエリア"></div>
       <div class="areas" id="regions" role="group" aria-label="パリ以外の地方"></div>
     </div>
-    <button type="button" class="mapbtn" id="mapbtn" aria-expanded="false" aria-controls="frpanel" aria-label="フランスのどのあたりか、地図を開く" title="フランスのどのあたり？">
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>
-    </button>
-    <div class="frpanel" id="frpanel" hidden role="dialog" aria-label="フランスのどのあたり？"></div>
   </div>
 </header>
 
@@ -45,6 +48,6 @@
   <p>単発の市は、パリ市が公開している一覧から日付と場所を載せています。<strong>出かける前に必ず主催者や公式の案内を確認してください。</strong></p>
   <p><a href="https://hashigo-map.com/">はしごマップ</a>のサイトです ・ <a href="about.html">このサイトについて</a> ・ <span id="builtAt"></span></p>
 </footer>
-<script type="module" src="app.js?v=a89422b0"></script>
+<script type="module" src="app.js?v=c7e39b68"></script>
 </body>
 </html>

@@ -1,19 +1,20 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=a89422b0';
-import { dayStrip, parisRow, regionChips, regionNote, zoneMap, franceMap, viewDay, viewHashigo, viewEvents, viewMarkets, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=a89422b0';
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=c7e39b68';
+import { dayStrip, parisRow, regionChips, regionNote, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=c7e39b68';
 // パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 保存できなくても表示は続ける */ } },
 };
-const VIEWS = ['day', 'hashigo', 'events', 'markets', 'saved'];
+const VIEWS = ['all', 'day', 'hashigo', 'saved'];
 const state = {
   data: null,
-  view: store.get('hashigo-puces:view', 'day'),
+  view: 'all', // 開いたときはいつも全日程から
   region: store.get('hashigo-puces:region', 'パリ'),
   zone: store.get('hashigo-puces:zone', 'すべて'),
   mapOpen: store.get('hashigo-puces:map', true),
   frPanel: false,
+  menu: false,
   stay: store.get('hashigo-puces:stay', { from: '', to: '' }),
   date: '',
 };
@@ -32,8 +33,8 @@ function render() {
   if (!all.regions.includes(state.region)) state.region = 'パリ';
   const paris = state.region === 'パリ';
   // 地方は、その地方の常設だけを見せる（単発・はしご・エリアはパリだけ）
-  const data = { ...all, markets: all.markets.filter((m) => m.region === state.region), events: paris ? all.events : [], groups: paris ? all.groups : [] };
-  if (!VIEWS.includes(state.view)) state.view = 'day';
+  const data = { ...all, region: state.region, markets: all.markets.filter((m) => m.region === state.region), events: paris ? all.events : [], groups: paris ? all.groups : [] };
+  if (!VIEWS.includes(state.view)) state.view = 'all';
   if (!paris || (state.zone !== 'すべて' && !all.zones.includes(state.zone))) state.zone = 'すべて';
   const clampStay = (d) => (d && d >= PERIOD.start && d <= PERIOD.end ? d : '');
   state.stay = { from: clampStay(state.stay.from), to: clampStay(state.stay.to) };
@@ -41,15 +42,14 @@ function render() {
   if (!state.date || state.date < PERIOD.start || state.date > PERIOD.end) state.date = clampToPeriod(today);
   document.querySelectorAll('.view button').forEach((b) => { b.setAttribute('aria-pressed', String(b.dataset.view === state.view)) });
   $('#regions').innerHTML = regionChips(all, state.region);
-  $('#days').innerHTML = dayStrip(data, today, state.date, state.zone, state.stay);
+  $('#days').innerHTML = dayStrip(data, today, state.date, state.zone, state.stay, state.view);
   $('#parisrow').innerHTML = parisRow(all, state.region, state.zone);
   const fp = $('#frpanel'); fp.innerHTML = franceMap(all, state.region); fp.hidden = !state.frPanel;
-  $('#mapbtn').setAttribute('aria-expanded', String(state.frPanel));
+  $('#menu').hidden = !state.menu; $('#menubtn').setAttribute('aria-expanded', String(state.menu));
   const body = state.view === 'hashigo' ? viewHashigo(data, state)
-    : state.view === 'events' ? viewEvents(data, today, state)
-    : state.view === 'markets' ? viewMarkets(data, state)
+    : state.view === 'day' ? viewDay(data, state)
     : state.view === 'saved' ? viewSaved(all, today)
-    : viewDay(data, state);
+    : viewAll(data, today, state);
   // ★ メモの画面はエリアでしぼらないので、地図は出さない。地図はパリだけ
   $('#main').innerHTML = (state.view === 'saved' ? '' : paris ? zoneMap(data, state.zone, state.mapOpen, state.date) : regionNote(state.region, state.view)) + body;
 }
@@ -74,10 +74,19 @@ function act(t) {
   if (t.dataset.forget) {
     delete saved.fav[t.dataset.forget]; delete saved.memo[t.dataset.forget];
     store.set('hashigo-puces:fav', saved.fav); store.set('hashigo-puces:memo', saved.memo);
-  } else if (t.dataset.view) { state.view = t.dataset.view; store.set('hashigo-puces:view', state.view); }
+  } else if (t.dataset.view) { state.view = t.dataset.view; }
+  else if (t.dataset.menu) {
+    state.menu = false;
+    if (t.dataset.menu === 'map') { state.frPanel = true; render(); return; }
+    state.view = 'saved'; render();
+    const el = t.dataset.menu === 'memo' ? $('#sec-memo') : ($('#sec-fav') || $('#main'));
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (t.dataset.menu === 'memo') $('#tripNote')?.focus({ preventScroll: true });
+    return;
+  }
   else if ('stayClear' in t.dataset) { state.stay = { from: '', to: '' }; store.set('hashigo-puces:stay', state.stay); }
   else if ('stayAll' in t.dataset) { state.stay = { from: PERIOD.start, to: PERIOD.end }; store.set('hashigo-puces:stay', state.stay); }
-  else if (t.dataset.date) { state.date = t.dataset.date; if (state.view !== 'hashigo') state.view = 'day'; }
+  else if (t.dataset.date) { state.date = t.dataset.date; state.view = 'day'; }
   else if (t.dataset.region) { state.region = t.dataset.region; store.set('hashigo-puces:region', state.region); }
   else if ('frclose' in t.dataset) state.frPanel = false;
   else if (t.dataset.zone) { state.zone = state.zone === t.dataset.zone ? 'すべて' : t.dataset.zone; store.set('hashigo-puces:zone', state.zone); }
@@ -87,13 +96,14 @@ function act(t) {
 }
 
 function bind() {
-  const SEL = '[data-fav],[data-forget],[data-view],[data-date],[data-region],[data-zone],[data-stay-clear],[data-stay-all],[data-frclose]';
+  const SEL = '[data-fav],[data-forget],[data-view],[data-menu],[data-date],[data-region],[data-zone],[data-stay-clear],[data-stay-all],[data-frclose]';
   document.addEventListener('click', (e) => {
-    if (e.target.closest('#mapbtn')) { state.frPanel = !state.frPanel; return render(); }
-    if (state.frPanel && !e.target.closest('#frpanel, .areawrap')) { state.frPanel = false; render(); }
+    if (e.target.closest('#menubtn')) { state.menu = !state.menu; state.frPanel = false; return render(); }
+    if (state.menu && !e.target.closest('#menu')) { state.menu = false; render(); }
+    if (state.frPanel && !e.target.closest('#frpanel, .areawrap, #menu')) { state.frPanel = false; render(); }
     const t = e.target.closest(SEL); if (t) act(t);
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.frPanel) { state.frPanel = false; render(); $('#mapbtn').focus(); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && (state.frPanel || state.menu)) { state.frPanel = false; state.menu = false; render(); $('#menubtn').focus(); } });
   // 地図の区はボタンではないので、キーボードでも押せるようにする
   document.addEventListener('keydown', (e) => {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('path[data-zone],g[data-zone],[data-region][role="button"]')) { e.preventDefault(); act(e.target); }
@@ -115,7 +125,7 @@ function bind() {
     suppress = true; setTimeout(() => { suppress = false; }, 0);
     const [a, b] = [from, to].sort();
     state.stay = { from: a, to: b }; state.view = 'hashigo';
-    store.set('hashigo-puces:stay', state.stay); store.set('hashigo-puces:view', state.view);
+    store.set('hashigo-puces:stay', state.stay);
     render(); $('#main').scrollIntoView({ block: 'start' });
   };
   strip.addEventListener('pointerdown', (e) => {
