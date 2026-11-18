@@ -1,5 +1,5 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=c3d825f1';
-import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=c3d825f1';
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=6745ade8';
+import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=6745ade8';
 // パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
@@ -124,10 +124,21 @@ function bind() {
     const [a, b] = [drag.from, drag.to].sort();
     strip.querySelectorAll('.day').forEach((d) => { d.toggleAttribute('data-drag', d.dataset.date >= a && d.dataset.date <= b); });
   };
-  const move = (x, y) => { const d = dayAt(x, y); if (d && drag && d.dataset.date !== drag.to) { drag.to = d.dataset.date; drag.moved = true; paint(); } };
+  const move = (x, y) => { last = [x, y]; const d = dayAt(x, y); if (d && drag && d.dataset.date !== drag.to) { drag.to = d.dataset.date; drag.moved = true; paint(); } };
+  // ドラッグ中に帯の左右の端へ寄せると、帯が自動で流れて先の日（2月）までえらべる
+  let last = null, rolling = 0;
+  const roll = () => {
+    rolling = 0;
+    if (!drag || !last) return;
+    const r = strip.getBoundingClientRect(), edge = 48, [x, y] = last;
+    const v = x > r.right - edge ? Math.min(18, (x - (r.right - edge)) / 2 + 4) : x < r.left + edge ? -Math.min(18, ((r.left + edge) - x) / 2 + 4) : 0;
+    if (v) { strip.scrollLeft += v; move(Math.min(Math.max(x, r.left + 2), r.right - 2), y); }
+    rolling = requestAnimationFrame(roll);
+  };
+  const startRoll = () => { if (!rolling) rolling = requestAnimationFrame(roll); };
   const finish = () => {
     if (!drag) return;
-    const { from, to, moved } = drag; drag = null; clearTimeout(hold);
+    const { from, to, moved } = drag; drag = null; last = null; clearTimeout(hold);
     strip.querySelectorAll('.day[data-drag]').forEach((d) => d.removeAttribute('data-drag'));
     if (!moved || from === to) return;
     suppress = true; setTimeout(() => { suppress = false; }, 0);
@@ -140,14 +151,14 @@ function bind() {
     const d = e.target.closest('.day[data-date]'); if (!d || e.pointerType === 'touch' || e.button > 0) return;
     drag = { from: d.dataset.date, to: d.dataset.date, moved: false };
   });
-  document.addEventListener('pointermove', (e) => { if (drag && e.pointerType !== 'touch') move(e.clientX, e.clientY); });
+  document.addEventListener('pointermove', (e) => { if (drag && e.pointerType !== 'touch') { move(e.clientX, e.clientY); startRoll(); } });
   document.addEventListener('pointerup', (e) => { if (e.pointerType !== 'touch') finish(); });
   document.addEventListener('click', (e) => { if (suppress) { e.stopPropagation(); e.preventDefault(); } }, true);
   strip.addEventListener('touchstart', (e) => {
     const t = e.touches[0], d = dayAt(t.clientX, t.clientY); if (!d) return;
     hold = setTimeout(() => { drag = { from: d.dataset.date, to: d.dataset.date, moved: false, touch: true }; paint(); navigator.vibrate?.(20); }, 450);
   }, { passive: true });
-  strip.addEventListener('touchmove', (e) => { if (drag?.touch) { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); } else clearTimeout(hold); }, { passive: false });
+  strip.addEventListener('touchmove', (e) => { if (drag?.touch) { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); startRoll(); } else clearTimeout(hold); }, { passive: false });
   strip.addEventListener('touchend', () => { clearTimeout(hold); if (drag?.touch) { const moved = drag.moved; finish(); if (moved) suppress = true, setTimeout(() => { suppress = false; }, 400); } });
   strip.addEventListener('touchcancel', () => { clearTimeout(hold); drag = null; strip.querySelectorAll('.day[data-drag]').forEach((d) => d.removeAttribute('data-drag')); });
   // 滞在期間の始点・終点。片方だけえらんだときは、もう片方を同じ日にする

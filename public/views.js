@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=c3d825f1';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=c3d825f1';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=c3d825f1';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=6745ade8';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=6745ade8';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=6745ade8';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -110,16 +110,15 @@ export function eventCard(e, sourceUrl) {
 const grid = (html) => `<div class="grid">${html.join('')}</div>`;
 
 /* ---------- 上の帯 ---------- */
-/** 見られる期間（1〜2月）の日付ボタン。月ごとに1段ずつ並べて、全部の日が見えるようにする */
+/** 見られる期間（1〜2月）の日付ボタン。1段で、横にスクロールすると2月末まで見られる */
 export function dayStrip(data, today, selected, zone, stay, view, pick) {
   const inStay = (iso) => view === 'hashigo' && stay && stay.from && stay.to && iso >= stay.from && iso <= stay.to;
-  const months = new Map();
-  for (const iso of periodDays()) { const ym = iso.slice(0, 7); if (!months.has(ym)) months.set(ym, []); months.get(ym).push(iso); }
-  return [...months].map(([ym, days]) => `<div class="days__row"><span class="days__m">${Number(ym.slice(5))}月</span>${days.map((iso) => {
+  return periodDays().map((iso, i) => {
     const w = weekday(iso);
     const n = marketsOn(data.markets, iso).filter((x) => inZone(zone, x.market.zone)).length + eventsOn(data.events, iso).filter((e) => inZone(zone, e.zone)).length;
-    return `<button class="day" type="button" data-date="${iso}" ${view === 'day' && iso === selected ? 'aria-current="date"' : ''} ${n ? '' : 'data-empty'} ${iso === today ? 'data-today' : ''} ${inStay(iso) ? 'data-stay' : ''} ${view === 'hashigo' && iso === pick ? 'data-pick' : ''} ${w === 0 ? 'data-sun' : w === 6 ? 'data-sat' : ''} aria-label="${mdw(iso)} ${n}件"><span class="day__d">${Number(iso.slice(8))}</span><span class="day__w">${DOW[w]}</span></button>`;
-  }).join('')}</div>`).join('');
+    return `<button class="day" type="button" data-date="${iso}" ${view === 'day' && iso === selected ? 'aria-current="date"' : ''} ${n ? '' : 'data-empty'} ${iso === today ? 'data-today' : ''} ${inStay(iso) ? 'data-stay' : ''} ${view === 'hashigo' && iso === pick ? 'data-pick' : ''} ${w === 0 ? 'data-sun' : w === 6 ? 'data-sat' : ''} aria-label="${mdw(iso)} ${n}件">
+      <span class="day__m">${i === 0 || iso.endsWith('-01') ? `${Number(iso.slice(5, 7))}月` : ''}</span><span class="day__d">${Number(iso.slice(8))}</span><span class="day__w">${DOW[w]}</span></button>`;
+  }).join('');
 }
 
 const regionChip = (data, r, region) => `<button type="button" class="chip chip--region" data-region="${esc(r)}" aria-pressed="${r === region}">${esc(r)}<span class="chip__n">${data.markets.filter((m) => m.region === r).length}</span></button>`;
@@ -209,38 +208,27 @@ function combosOn(data, date, zone, region = 'パリ') {
   });
 }
 /** 滞在期間（始点〜終点）をえらぶ欄 */
-function stayForm(stay, pick) {
-  const on = stay.from && stay.to;
+function stayForm(stay) {
   return `<div class="stay">
     <p class="stay__title">フランスにいる期間をえらぶ</p>
     <div class="stay__row">
       <label>着く日<input type="date" id="stayFrom" min="${PERIOD.start}" max="${PERIOD.end}" value="${esc(stay.from || '')}"></label>
       <span aria-hidden="true">〜</span>
       <label>帰る日<input type="date" id="stayTo" min="${PERIOD.start}" max="${PERIOD.end}" value="${esc(stay.to || '')}"></label>
-      <button type="button" class="btn btn--ghost" data-stay-all>全期間</button>
-      ${on ? '<button type="button" class="btn btn--ghost" data-stay-clear>1日ずつ見る</button>' : ''}
     </div>
-    ${pick ? `<p class="stay__pick">始まりの日：${mdw(pick)}。上の日付で、終わりの日を押してください</p>` : ''}
-    <p class="stay__hint">${on ? '期間中の、2か所以上まわれる日をまとめて出しています。' : ''}上の日付で、始まりの日と終わりの日を順に押すと期間をえらべます。</p>
+    <p class="stay__hint">上の日付で、始まりと終わりの日をドラッグすると期間を選べます。</p>
   </div>`;
 }
-export function viewHashigo(data, { date, zone, stay, pick, region = 'パリ' }) {
-  const form = stayForm(stay, pick);
-  if (stay.from && stay.to) {
-    const days = [];
-    for (let d = stay.from; d <= stay.to; d = addDays(d, 1)) days.push(d);
-    const rows = days.map((d) => ({ d, sets: combosOn(data, d, zone, region).filter(({ markets, events }) => markets.length + events.length >= 2) }));
-    const hit = rows.filter((r) => r.sets.length);
-    const none = rows.filter((r) => !r.sets.length).map((r) => mdw(r.d));
-    const html = hit.map((r) => `<section class="stayday"><h2 class="stayday__title">${mdw(r.d)}</h2>${r.sets.map(({ group, markets, events }) => combo(data, group, markets, events, false)).join('')}</section>`).join('');
-    return form + `<div class="summary"><p><b class="num">${mdw(stay.from)}</b> 〜 <b class="num">${mdw(stay.to)}</b>（${days.length}日間）　はしごのある日 <b class="num">${hit.length}</b>日</p></div>` + stale(data, stay.from)
-      + (html || '<p class="empty">この期間に、2か所以上まわれる日は見つかっていません。期間をのばすか、エリアを「すべて」にしてみてください</p>')
-      + (none.length && hit.length ? `<p class="lead">ほかの日は、まわれる市が1か所以下です：${none.join('、')}</p>` : '');
-  }
-  const sets = combosOn(data, date, zone, region);
-  const html = sets.map(({ group, markets, events }) => combo(data, group, markets, events, true)).join('');
-  return form + `<p class="lead">${mdw(date)}${region === 'パリ' ? 'に、近くでまとめて回れる蚤の市です。単発の市は、同じ区や近くの区のものを並べています。' : `に、${esc(region)}で開く蚤の市です。`}</p>` + stale(data, date)
-    + (html || '<p class="empty">この日は、近くで回れる組み合わせがありません。土曜か日曜をえらんでみてください</p>');
+/** 期間を選ぶ：期間中に開く市を、日付ごとにすべて並べる（はしごのルートは「日を選ぶ」で出す） */
+export function viewHashigo(data, { zone, stay }) {
+  const form = stayForm(stay);
+  if (!(stay.from && stay.to)) return form + '<p class="empty">期間をえらぶと、そのあいだに開く市を日付ごとに並べます</p>';
+  const days = [];
+  for (let d = stay.from; d <= stay.to; d = addDays(d, 1)) days.push(d);
+  const rows = days.map((d) => ({ d, ms: marketsOn(data.markets, d).filter((x) => inZone(zone, x.market.zone)), es: eventsOn(data.events, d).filter((e) => inZone(zone, e.zone)) }));
+  const open = rows.filter((r) => r.ms.length + r.es.length);
+  const html = rows.map((r) => `<section class="stayday"><h2 class="stayday__title">${mdw(r.d)}<span class="month__n">${r.ms.length + r.es.length ? `常設 ${r.ms.length} ・ 単発 ${r.es.length}` : '開く市なし'}</span></h2>${r.ms.length + r.es.length ? grid([...r.ms.map((x) => marketCard(x.market, x.hours)), ...r.es.map((e) => eventCard(e, data.eventsMeta.source))]) : ''}</section>`).join('');
+  return form + `<div class="summary"><p><b class="num">${mdw(stay.from)}</b> 〜 <b class="num">${mdw(stay.to)}</b>（${days.length}日間）　市が開く日 <b class="num">${open.length}</b>日</p><p class="summary__hint">おすすめのはしごルートは「日を選ぶ」で見られます</p></div>` + stale(data, stay.to) + html;
 }
 
 /* ---------- 全日程（単発と常設をまとめて） ---------- */
