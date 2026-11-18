@@ -1,5 +1,5 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=dd11ccd8';
-import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=dd11ccd8';
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=b95218ba';
+import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=b95218ba';
 // パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
@@ -17,7 +17,8 @@ const state = {
   menu: false,
   stayOpen: store.get('hashigo-puces:stayOpen', true),
   periods: store.get('hashigo-puces:periods', []),
-  pick: '', // 期間を選ぶ：先に押した始まりの日
+  pick: '',
+  resetArmed: false, // お気に入りのリセット：確認を出しているとき // 期間を選ぶ：先に押した始まりの日
   stay: store.get('hashigo-puces:stay', { from: '', to: '' }),
   date: '',
 };
@@ -51,7 +52,7 @@ function render() {
   $('#menu').hidden = !state.menu; $('#menubtn').setAttribute('aria-expanded', String(state.menu));
   const body = state.view === 'hashigo' ? viewHashigo(data, state)
     : state.view === 'day' ? viewDay(data, state)
-    : state.view === 'saved' ? viewSaved(all, today, state.periods)
+    : state.view === 'saved' ? viewSaved(all, today, state.periods, state.resetArmed)
     : state.view === 'course' ? viewCourse(all, state)
     : state.view === 'best' ? viewBest(data, state)
     : state.view === 'calendar' ? viewCalendar(data, today, state)
@@ -77,6 +78,12 @@ function toggleFav(btn) {
 
 function act(t) {
   if (t.dataset.fav) return toggleFav(t);
+  if (t.dataset.favReset) {
+    if (t.dataset.favReset === 'go') { saved.fav = {}; store.set('hashigo-puces:fav', saved.fav); setSaved(saved); }
+    state.resetArmed = t.dataset.favReset === 'arm';
+    return render();
+  }
+  state.resetArmed = false;
   if (t.dataset.forget) {
     delete saved.fav[t.dataset.forget]; delete saved.memo[t.dataset.forget];
     store.set('hashigo-puces:fav', saved.fav); store.set('hashigo-puces:memo', saved.memo);
@@ -118,7 +125,7 @@ function act(t) {
 }
 
 function bind() {
-  const SEL = '[data-fav],[data-forget],[data-view],[data-menu],[data-period-save],[data-period],[data-period-del],[data-date],[data-region],[data-zone],[data-stay-clear],[data-stay-all],[data-frclose]';
+  const SEL = '[data-fav],[data-fav-reset],[data-forget],[data-view],[data-menu],[data-period-save],[data-period],[data-period-del],[data-date],[data-region],[data-zone],[data-stay-clear],[data-stay-all],[data-frclose]';
   document.addEventListener('click', (e) => {
     if (e.target.closest('#menubtn')) { state.menu = !state.menu; state.frPanel = false; return render(); }
     if (state.menu && !e.target.closest('#menu')) { state.menu = false; render(); }

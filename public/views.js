@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=dd11ccd8';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=dd11ccd8';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=dd11ccd8';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=b95218ba';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=b95218ba';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=b95218ba';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -385,7 +385,7 @@ function stopList(stops) {
 }
 
 /** お気に入りでコースを作る：お気に入りが開く日ごとに、近くで同じ日に開く市を足してコースにする */
-export function viewCourse(all, { stay }) {
+export function viewCourse(all, { stay, resetArmed = false }) {
   const favKeys = Object.keys(SAVED.fav);
   const lead = `<h2 class="section__title">お気に入りでコースを作る<span class="month__n">☆を付けた市を中心に組みます</span></h2>`;
   if (!favKeys.length) return lead + '<p class="empty">まだお気に入りがありません。カードの ☆ を押すと、その市を入れたコースをここで作れます</p>';
@@ -402,10 +402,10 @@ export function viewCourse(all, { stay }) {
       plans.push({ d, region, favN: mine.length, stops, score: mine.length * 10 + near.length });
     }
   }
-  if (!plans.length) return lead + `<p class="empty">${useStay ? 'えらんでいる期間に' : '1〜2月に'}、お気に入りの市が開く日がありません</p>`;
+  if (!plans.length) return lead + favReset(resetArmed) + `<p class="empty">${useStay ? 'えらんでいる期間に' : '1〜2月に'}、お気に入りの市が開く日がありません</p>`;
   plans.sort((a, b) => b.score - a.score || a.d.localeCompare(b.d));
   const top = plans.slice(0, 12);
-  return lead + `<p class="lead">${useStay ? `えらんでいる期間（${md(stay.from)}〜${md(stay.to)}）で、` : '1〜2月で、'}お気に入りがたくさん入る日から並べています。★がお気に入り、ほかは同じ日に近くで開く市です。</p>`
+  return lead + favReset(resetArmed) + `<p class="lead">${useStay ? `えらんでいる期間（${md(stay.from)}〜${md(stay.to)}）で、` : '1〜2月で、'}お気に入りがたくさん入る日から並べています。★がお気に入り、ほかは同じ日に近くで開く市です。</p>`
     + `<div class="plans">${top.map((p) => `<article class="plan"><header class="plan__head"><b class="num">${mdw(p.d)}</b><span>${esc(p.region)} ・ お気に入り ${p.favN} ・ 全部で ${p.stops.length}か所</span></header>${stopList(p.stops)}${routeButtons(p.stops, p.region)}<button type="button" class="btn btn--sm plan__go" data-date="${p.d}">この日を見る</button></article>`).join('')}</div>`;
 }
 
@@ -446,7 +446,15 @@ export function viewCalendar(data, today, { zone }) {
 }
 
 /* ---------- ★ メモ（お気に入りとメモのまとめ） ---------- */
-export function viewSaved(data, today, periods = []) {
+/** お気に入りをすべて外すボタン。1回目で確認を出し、2回目で外す */
+export function favReset(armed) {
+  const n = Object.keys(SAVED.fav).length;
+  if (!n) return '';
+  return armed
+    ? `<div class="reset is-armed"><span>お気に入り ${n}件をすべて外します。メモは残ります。</span><button type="button" class="btn btn--sm btn--danger" data-fav-reset="go">すべて外す</button><button type="button" class="btn btn--ghost btn--sm" data-fav-reset="cancel">やめる</button></div>`
+    : `<div class="reset"><button type="button" class="btn btn--ghost btn--sm" data-fav-reset="arm">お気に入りをリセット</button></div>`;
+}
+export function viewSaved(data, today, periods = [], armed = false) {
   const byKey = new Map([...data.markets.map((m) => [m.id, { market: m }]), ...data.events.map((e) => [eventKey(e), { event: e }])]);
   const keys = [...new Set([...Object.keys(SAVED.fav), ...Object.keys(SAVED.memo)])];
   const render = (k) => { const x = byKey.get(k); return x.market ? marketCard(x.market, null) : eventCard(x.event, data.eventsMeta.source); };
@@ -468,7 +476,7 @@ export function viewSaved(data, today, periods = []) {
   const empty = !keys.length && !periods.length ? '<p class="empty">まだ何も入っていません。カードの ☆ でお気に入りに、「メモを書く」でメモを付けられます</p>' : '';
   const per = periods.length ? `<h2 class="section__title">保存した期間<span class="month__n">押すと「期間を選ぶ」で開きます</span></h2><div class="stay__saved">${periods.map((p) => `<span class="pchip"><button type="button" class="pchip__go" data-period="${esc(p.from)}|${esc(p.to)}">${mdw(p.from)}〜${mdw(p.to)}</button><button type="button" class="pchip__del" data-period-del="${esc(p.from)}|${esc(p.to)}" aria-label="消す">×</button></span>`).join('')}</div>` : '';
   return `<p class="lead">お気に入りとメモは、このブラウザの中だけに保存されます。</p>` + per + note
-    + (favs.length ? `<h2 class="section__title" id="sec-fav">お気に入り<span class="month__n">${favs.length}件</span></h2>${grid(favs.map(render))}` : '')
+    + (favs.length ? `<h2 class="section__title" id="sec-fav">お気に入り<span class="month__n">${favs.length}件</span></h2>${favReset(armed)}${grid(favs.map(render))}` : '')
     + (memos.length ? `<h2 class="section__title">メモを付けた市<span class="month__n">${memos.length}件</span></h2>${grid(memos.map(render))}` : '')
     + goneHtml + empty;
 }

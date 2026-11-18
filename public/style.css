@@ -355,3 +355,7 @@ a { color: inherit; }
 .cal__day:hover { filter: brightness(.95); }
 .plan .course__links { flex: none; }
 .plan .btn { align-self: flex-start; }
+.reset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.reset.is-armed { background: #fdecea; border: 1px solid #f3c2bd; border-radius: 12px; padding: 8px 12px; font-size: 14px; }
+.reset.is-armed span { flex: 1 1 100%; }
+.btn--danger { background: #c62828; border-color: #c62828; color: #fff; }
