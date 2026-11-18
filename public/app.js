@@ -1,5 +1,5 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=937d0519';
-import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=937d0519';
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=c47e4061';
+import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=c47e4061';
 // ぷらり！フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
@@ -50,7 +50,7 @@ function render() {
   $('#days').innerHTML = dayStrip(data, today, state.date, state.zone, state.stay, state.view, state.pick);
   $('#parisrow').innerHTML = parisRow(all, state.region, state.zone);
   const fp = $('#frpanel'); fp.innerHTML = franceMap(all, state.region); fp.hidden = !state.frPanel;
-  $('#fold').hidden = state.fold; $('#foldbtn').setAttribute('aria-expanded', String(!state.fold)); $('#foldbtn').setAttribute('aria-label', state.fold ? 'ボタンをひらく' : 'ボタンをたたむ');
+  $('#fold').hidden = state.fold; $('#foldbtn').setAttribute('aria-expanded', String(!state.fold));
   $('#menu').hidden = !state.menu; $('#menubtn').setAttribute('aria-expanded', String(state.menu));
   const body = state.view === 'hashigo' ? viewHashigo(data, state)
     : state.view === 'day' ? viewDay(data, state)
