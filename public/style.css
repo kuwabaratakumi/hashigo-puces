@@ -4,7 +4,7 @@
   --ink: #23262b;
   --ink-2: #565c66;
   --soft-line: #dfdcd3;
-  --head: #23262b;
+  --head: #0055a4;       /* ポータルの蚤の市カードと同じ青 */
   --accent: #0055a4;       /* フランス国旗の青（ポータルと共通） */
   --accent-dark: #003f7d;
   --accent-bg: #e1ecf8;
@@ -308,3 +308,17 @@ a { color: inherit; }
 .hashigo-mini--fold ul { padding: 0 10px 10px; }
 .stay__ttl { white-space: nowrap; }
 .stay .mapbox__now { font-family: var(--num); font-size: 15px; font-weight: 600; color: var(--accent-dark); }
+/* ヘッダーが青なので、ヘッダーの中の「えらんでいる」表示は白地に青文字にする */
+.top .view button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.top .day[aria-current="date"] { background: #fff; }
+.top .day[aria-current="date"] .day__d, .top .day[aria-current="date"] .day__w, .top .day[aria-current="date"] .day__m { color: var(--accent); }
+.top .day__w, .top .day__m, .top__sub { color: #d5e3f5; }
+.top .day[data-sat] .day__d, .top .day[data-sat] .day__w { color: #cfe3ff; }
+.top .day[data-sun] .day__d, .top .day[data-sun] .day__w { color: #ffc2bb; }
+.top .brand__icon { color: #fff; }
+.top .areas__sep { background: rgba(255, 255, 255, .45); }
+.top .day[data-stay]:not([aria-current="date"]) { box-shadow: inset 0 -3px 0 #fff; }
+.top .day[data-drag], .top .day[data-pick] { background: #fff; }
+.top .day[data-drag] .day__d, .top .day[data-pick] .day__d, .top .day[data-drag] .day__w, .top .day[data-pick] .day__w { color: var(--accent); }
+.top .day[aria-current="date"][data-sat] .day__d, .top .day[aria-current="date"][data-sat] .day__w, .top .day[aria-current="date"][data-sun] .day__d, .top .day[aria-current="date"][data-sun] .day__w,
+.top .day[data-pick][data-sat] .day__d, .top .day[data-pick][data-sun] .day__d, .top .day[data-drag][data-sat] .day__d, .top .day[data-drag][data-sun] .day__d { color: var(--accent); }

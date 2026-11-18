@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=c7a99cca';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=c7a99cca';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=c7a99cca';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=ec75805b';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=ec75805b';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=ec75805b';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -266,7 +266,7 @@ export function viewAll(data, today, state) {
   const paris = data.region === 'パリ';
   const ev = paris ? viewEvents(data, today, state) : '';
   const mk = viewMarkets(data, state);
-  return `<div class="summary"><p><b class="num">1/1</b> 〜 <b class="num">2/28</b> の全日程　${paris ? `単発 <b class="num">${inPeriod(data.events, today).filter((e) => inZone(state.zone, e.zone)).length}</b> ・ ` : ''}常設 <b class="num">${data.markets.filter((m) => inZone(state.zone, m.zone)).length}</b></p><p class="summary__hint">上の日付を押すとその日だけ、ドラッグすると期間でしぼれます</p></div>`
+  return `<div class="summary"><p><b class="num">1/1</b> 〜 <b class="num">2/28</b> の全日程　${paris ? `単発 <b class="num">${inPeriod(data.events, today).filter((e) => inZone(state.zone, e.zone)).length}</b> ・ ` : ''}常設 <b class="num">${data.markets.filter((m) => inZone(state.zone, m.zone)).length}</b></p><p class="summary__hint">上の日付を押すとその日だけ、ドラッグで期間をしぼれます</p></div>`
     + (paris ? `<h2 class="section__title">単発<span class="month__n">決まった日だけ開く市</span></h2>${ev}` : '')
     + `<h2 class="section__title">常設<span class="month__n">毎週・毎月開く市</span></h2>${mk}`;
 }
@@ -286,7 +286,7 @@ export function viewEvents(data, today, { zone }) {
 export function viewMarkets(data, { zone }) {
   const list = data.markets.filter((m) => inZone(zone, m.zone));
   if (!list.length) return '<p class="empty">このエリアの常設の蚤の市は、まだ登録していません</p>';
-  return `<p class="lead">毎週決まった曜日に開く蚤の市です（月に1〜2回だけのものは、開催日を書いています）。祝日や夏休みは、時間が変わることがあります。</p>` + grid(list.map((m) => marketCard(m, null)));
+  return `<p class="lead">毎週・月決まった曜日に開く蚤の市です。祝日、長期休みでは時間が変わる場合があります。</p>` + grid(list.map((m) => marketCard(m, null)));
 }
 
 /* ---------- フランス全体の地図（右上のメニューから開く） ---------- */
