@@ -1,12 +1,12 @@
-import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=ec75805b';
-import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, setSaved, setZones, starLabel, esc } from './views.js?v=ec75805b';
+import { parisToday, clampToPeriod, addDays, PERIOD } from './schedule.js?v=dd11ccd8';
+import { dayStrip, parisRow, regionChips, zoneMap, franceMap, viewDay, viewHashigo, viewAll, viewSaved, viewCourse, viewBest, viewCalendar, setSaved, setZones, starLabel, esc } from './views.js?v=dd11ccd8';
 // パルクリール！ フランス蚤の市 — パリの蚤の市を日付で見て、同じ日に回れる組み合わせを探す
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 保存できなくても表示は続ける */ } },
 };
-const VIEWS = ['all', 'day', 'hashigo', 'saved'];
+const VIEWS = ['all', 'day', 'hashigo', 'saved', 'course', 'best', 'calendar'];
 const state = {
   data: null,
   view: 'all', // 開いたときはいつも全日程から
@@ -52,9 +52,12 @@ function render() {
   const body = state.view === 'hashigo' ? viewHashigo(data, state)
     : state.view === 'day' ? viewDay(data, state)
     : state.view === 'saved' ? viewSaved(all, today, state.periods)
+    : state.view === 'course' ? viewCourse(all, state)
+    : state.view === 'best' ? viewBest(data, state)
+    : state.view === 'calendar' ? viewCalendar(data, today, state)
     : viewAll(data, today, state);
   // ★ メモの画面はエリアでしぼらないので、地図は出さない。地図はパリだけ
-  $('#main').innerHTML = (state.view === 'saved' ? '' : paris ? zoneMap(data, state.zone, state.mapOpen, state.date) : '') + body;
+  $('#main').innerHTML = (state.view === 'saved' || state.view === 'course' ? '' : paris ? zoneMap(data, state.zone, state.mapOpen, state.date) : '') + body;
 }
 
 function toggleFav(btn) {
@@ -81,6 +84,7 @@ function act(t) {
   else if (t.dataset.menu) {
     state.menu = false;
     if (t.dataset.menu === 'map') { state.frPanel = true; render(); return; }
+    if (['course', 'best', 'calendar'].includes(t.dataset.menu)) { state.view = t.dataset.menu; render(); $('#main').scrollIntoView({ block: 'start' }); return; }
     state.view = 'saved'; render();
     const el = t.dataset.menu === 'memo' ? $('#sec-memo') : ($('#sec-fav') || $('#main'));
     el?.scrollIntoView({ block: 'start', behavior: 'smooth' });

@@ -322,3 +322,36 @@ a { color: inherit; }
 .top .day[data-drag] .day__d, .top .day[data-pick] .day__d, .top .day[data-drag] .day__w, .top .day[data-pick] .day__w { color: var(--accent); }
 .top .day[aria-current="date"][data-sat] .day__d, .top .day[aria-current="date"][data-sat] .day__w, .top .day[aria-current="date"][data-sun] .day__d, .top .day[aria-current="date"][data-sun] .day__w,
 .top .day[data-pick][data-sat] .day__d, .top .day[data-pick][data-sun] .day__d, .top .day[data-drag][data-sat] .day__d, .top .day[data-drag][data-sun] .day__d { color: var(--accent); }
+
+/* ---------- メニューの3つの機能 ---------- */
+.menu__sep { height: 1px; background: var(--soft-line); margin: 4px 8px; }
+.plans, .best { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.plan { background: var(--surface); border: 1px solid var(--soft-line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.plan__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.plan__head b { font-size: 20px; }
+.plan__head span { font-size: 13px; color: var(--ink-2); }
+.plan__sub { margin: 0; font-size: 13px; font-weight: 700; color: var(--accent-dark); }
+.plan__go { align-self: flex-start; }
+.best__rank { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff !important; font-weight: 700; font-size: 15px !important; }
+.stops { margin: 0; padding-left: 1.4em; display: grid; gap: 4px; font-size: 14px; }
+.stops li { padding-left: 2px; }
+.stops__t { font-family: var(--num); font-weight: 600; color: var(--ink-2); margin-right: 8px; white-space: nowrap; }
+.stops li.is-fav .stops__n { font-weight: 700; color: var(--accent-dark); }
+.cals { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); margin-bottom: 12px; }
+.cal { background: var(--surface); border: 1px solid var(--soft-line); border-radius: 14px; padding: 12px; }
+.cal__title { margin: 0 0 8px; font-size: 16px; }
+.cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal__w { text-align: center; font-size: 12px; color: var(--ink-2); }
+.cal__day { appearance: none; border: 0; border-radius: 8px; cursor: pointer; padding: 4px 0 6px; display: flex; flex-direction: column; align-items: center; font: inherit; color: var(--ink);
+  background: color-mix(in srgb, var(--accent) calc(var(--lv) * 85%), #f1f3f7); }
+.cal__day[style*="--lv:0."][style*="--lv:0.0"], .cal__day[data-empty] { background: #f1f3f7; color: #9aa1ab; }
+.cal__d { font-family: var(--num); font-size: 14px; line-height: 1.1; }
+.cal__n { font-family: var(--num); font-weight: 700; font-size: 18px; line-height: 1.1; }
+.cal__day:not([data-empty])[style*="--lv:0.5"], .cal__day:not([data-empty])[style*="--lv:0.6"], .cal__day:not([data-empty])[style*="--lv:0.7"], .cal__day:not([data-empty])[style*="--lv:0.8"], .cal__day:not([data-empty])[style*="--lv:0.9"], .cal__day[style*="--lv:1.00"] { color: #fff; }
+.cal__day[data-sun] .cal__d { color: #d62b25; }
+.cal__day[data-sat] .cal__d { color: var(--accent); }
+.cal__day[style*="--lv:0.5"] .cal__d, .cal__day[style*="--lv:0.6"] .cal__d, .cal__day[style*="--lv:0.7"] .cal__d, .cal__day[style*="--lv:0.8"] .cal__d, .cal__day[style*="--lv:0.9"] .cal__d, .cal__day[style*="--lv:1.00"] .cal__d { color: #fff; }
+.cal__day[data-today] { outline: 2px solid var(--ink); outline-offset: -2px; }
+.cal__day:hover { filter: brightness(.95); }
+.plan .course__links { flex: none; }
+.plan .btn { align-self: flex-start; }

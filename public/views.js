@@ -1,7 +1,7 @@
 // 画面の部品（HTML文字列を作るだけ。DOM には触らない）
-import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=ec75805b';
-import { MAP_W, MAP_H, ARR } from './paris-map.js?v=ec75805b';
-import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=ec75805b';
+import { PERIOD, addDays, weekday, marketsOn, eventsOn, inPeriod, periodDays, hashigoOn } from './schedule.js?v=dd11ccd8';
+import { MAP_W, MAP_H, ARR } from './paris-map.js?v=dd11ccd8';
+import { FR_W, FR_H, FR_OUTLINE, FR_CITIES, FR_SUD, FR_EXTRA } from './france-map.js?v=dd11ccd8';
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 月はじまりで並べる
@@ -359,6 +359,90 @@ export function zoneMap(data, zone, open, date) {
       <svg class="map" viewBox="-4 -30 ${MAP_W + 8} ${MAP_H + 34}" role="group" aria-label="パリ20区の地図。区やピンを押すとエリアをえらべます">${paths}${nums}${pins}</svg>
     </div>
   </details>`;
+}
+
+/* ---------- メニューの3つの機能 ---------- */
+/** その日に開くもの（常設と単発）を1つの形にそろえる */
+function openItems(data, iso) {
+  const groupOf = (e) => (data.groups.find((g) => e.arr.some((n) => g.arrs.includes(n))) || {}).key || '';
+  return [
+    ...marketsOn(data.markets, iso).map((x) => ({ key: x.market.id, name: x.market.name, region: x.market.region, zone: x.market.zone || '', group: x.market.hashigo || '', open: x.hours.open, close: x.hours.close, m: x })),
+    ...eventsOn(data.events, iso).map((e) => ({ key: eventKey(e), name: e.place, region: 'パリ', zone: e.zone || '', group: groupOf(e), open: '', close: '', e })),
+  ];
+}
+/** 回る順（早く開く順。時間のわからない単発は最後）に並べて、ルートのボタンを作る */
+function routeButtons(stops, region) {
+  const ms = stops.filter((s) => s.m).map((s) => s.m), es = stops.filter((s) => s.e).map((s) => s.e);
+  if (ms.length + es.length < 2) return '';
+  const drive = region !== 'パリ';
+  const walk = routeUrl(ms, es, drive ? 'driving' : 'walking');
+  const legs = drive ? [] : transitLegs(ms, es);
+  return `<div class="course__links"><a class="btn btn--ghost" href="${esc(walk)}" target="_blank" rel="noopener">${drive ? '車' : '徒歩'}のルート</a>${legs.map((l, i) => `<a class="btn btn--ghost" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(l.from)} → ${esc(l.to)}">電車・バス${legs.length > 1 ? `（${i + 1}→${i + 2}）` : ''}</a>`).join('')}</div>`;
+}
+const byOpen = (a, b) => (a.open || '99').localeCompare(b.open || '99');
+function stopList(stops) {
+  return `<ol class="stops">${stops.map((s) => `<li${SAVED.fav[s.key] ? ' class="is-fav"' : ''}><span class="stops__t">${s.open ? `${hm(s.open)}〜${hm(s.close)}` : '時間は要確認'}</span><span class="stops__n">${SAVED.fav[s.key] ? '★ ' : ''}${esc(s.name)}</span></li>`).join('')}</ol>`;
+}
+
+/** お気に入りでコースを作る：お気に入りが開く日ごとに、近くで同じ日に開く市を足してコースにする */
+export function viewCourse(all, { stay }) {
+  const favKeys = Object.keys(SAVED.fav);
+  const lead = `<h2 class="section__title">お気に入りでコースを作る<span class="month__n">☆を付けた市を中心に組みます</span></h2>`;
+  if (!favKeys.length) return lead + '<p class="empty">まだお気に入りがありません。カードの ☆ を押すと、その市を入れたコースをここで作れます</p>';
+  const useStay = stay && stay.from && stay.to;
+  const days = periodDays().filter((d) => !useStay || (d >= stay.from && d <= stay.to));
+  const plans = [];
+  for (const d of days) {
+    const items = openItems(all, d);
+    const favs = items.filter((x) => SAVED.fav[x.key]);
+    for (const region of [...new Set(favs.map((f) => f.region))]) {
+      const mine = favs.filter((f) => f.region === region);
+      const near = items.filter((x) => !SAVED.fav[x.key] && x.region === region && (region !== 'パリ' || mine.some((f) => (f.group && f.group === x.group) || (f.zone && f.zone === x.zone))));
+      const stops = [...mine, ...near].sort(byOpen);
+      plans.push({ d, region, favN: mine.length, stops, score: mine.length * 10 + near.length });
+    }
+  }
+  if (!plans.length) return lead + `<p class="empty">${useStay ? 'えらんでいる期間に' : '1〜2月に'}、お気に入りの市が開く日がありません</p>`;
+  plans.sort((a, b) => b.score - a.score || a.d.localeCompare(b.d));
+  const top = plans.slice(0, 12);
+  return lead + `<p class="lead">${useStay ? `えらんでいる期間（${md(stay.from)}〜${md(stay.to)}）で、` : '1〜2月で、'}お気に入りがたくさん入る日から並べています。★がお気に入り、ほかは同じ日に近くで開く市です。</p>`
+    + `<div class="plans">${top.map((p) => `<article class="plan"><header class="plan__head"><b class="num">${mdw(p.d)}</b><span>${esc(p.region)} ・ お気に入り ${p.favN} ・ 全部で ${p.stops.length}か所</span></header>${stopList(p.stops)}${routeButtons(p.stops, p.region)}<button type="button" class="btn btn--sm plan__go" data-date="${p.d}">この日を見る</button></article>`).join('')}</div>`;
+}
+
+/** たくさん回れる日：開く市が多い日を上から */
+export function viewBest(data, { zone }) {
+  const rows = periodDays().map((d) => {
+    const items = openItems(data, d).filter((x) => inZone(zone, x.zone || 'すべて'));
+    const ms = items.filter((x) => x.m).length, es = items.length - ms;
+    const sets = combosOn(data, d, zone, data.region).filter(({ markets, events }) => markets.length + events.length >= 2)
+      .sort((a, b) => (b.markets.length + b.events.length) - (a.markets.length + a.events.length));
+    return { d, n: items.length, ms, es, best: sets[0] };
+  }).filter((r) => r.n).sort((a, b) => b.n - a.n || (b.best ? 1 : 0) - (a.best ? 1 : 0) || a.d.localeCompare(b.d));
+  const head = `<h2 class="section__title">たくさん回れる日<span class="month__n">${esc(data.region)}${zone !== 'すべて' ? `・${esc(zone)}` : ''}で、1〜2月に開く市が多い順</span></h2>`;
+  if (!rows.length) return head + '<p class="empty">1〜2月に開く市が見つかっていません</p>';
+  return head + `<ol class="best">${rows.slice(0, 10).map((r, i) => {
+    const stops = r.best ? [...r.best.markets.map((x) => ({ key: x.market.id, name: x.market.name, open: x.hours.open, close: x.hours.close, m: x })), ...r.best.events.map((e) => ({ key: eventKey(e), name: e.place, open: '', close: '', e }))].sort(byOpen) : [];
+    return `<li class="plan"><header class="plan__head"><span class="best__rank num">${i + 1}</span><b class="num">${mdw(r.d)}</b><span>${r.n}件（常設 ${r.ms} ・ 単発 ${r.es}）</span></header>
+      ${r.best ? `<p class="plan__sub">おすすめのはしご：${esc(r.best.group.title)}</p>${stopList(stops)}${routeButtons(stops, data.region)}` : '<p class="plan__sub">近くでまとめて回れる組み合わせはありません</p>'}
+      <button type="button" class="btn btn--sm plan__go" data-date="${r.d}">この日を見る</button></li>`;
+  }).join('')}</ol><p class="lead">件数は、えらんでいる地方とエリアで数えています。週末に集中するので、旅程を組むときの目安にしてください。</p>`;
+}
+
+/** 日ごとの件数：1月・2月のカレンダー */
+export function viewCalendar(data, today, { zone }) {
+  const counts = new Map(periodDays().map((d) => [d, openItems(data, d).filter((x) => inZone(zone, x.zone || 'すべて')).length]));
+  const max = Math.max(1, ...counts.values());
+  const months = new Map();
+  for (const d of counts.keys()) { const ym = d.slice(0, 7); if (!months.has(ym)) months.set(ym, []); months.get(ym).push(d); }
+  const cal = [...months].map(([ym, ds]) => {
+    const lead = (weekday(ds[0]) + 6) % 7; // 月はじまり
+    const cells = [...Array(lead).fill('<span class="cal__blank"></span>'), ...ds.map((d) => {
+      const n = counts.get(d), w = weekday(d);
+      return `<button type="button" class="cal__day" data-date="${d}" style="--lv:${(n / max).toFixed(2)}" ${n ? '' : 'data-empty'} ${w === 0 ? 'data-sun' : w === 6 ? 'data-sat' : ''} ${d === today ? 'data-today' : ''} aria-label="${mdw(d)} ${n}件"><span class="cal__d">${Number(d.slice(8))}</span><span class="cal__n">${n || '–'}</span></button>`;
+    })];
+    return `<section class="cal"><h3 class="cal__title">${ym.slice(0, 4)}年 ${Number(ym.slice(5))}月</h3><div class="cal__grid">${['月', '火', '水', '木', '金', '土', '日'].map((w) => `<span class="cal__w">${w}</span>`).join('')}${cells.join('')}</div></section>`;
+  }).join('');
+  return `<h2 class="section__title">日ごとの件数<span class="month__n">${esc(data.region)}${zone !== 'すべて' ? `・${esc(zone)}` : ''}で開く市の数（常設＋単発）</span></h2><div class="cals">${cal}</div><p class="lead">色が濃い日ほど、開く市が多い日です。日付を押すと、その日の市を見られます。</p>`;
 }
 
 /* ---------- ★ メモ（お気に入りとメモのまとめ） ---------- */
